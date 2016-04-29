@@ -13,27 +13,46 @@ verts2D = [
   (-3,3)
 ] # list of (a,b)
 
-isEdgeAttached = {
-  (0,1) : True,
-  (1,2) : False, 
-  (2,3) : True,
-  (0,3) : True,
-  (3,4) : True,
-  (4,5) : True,
-  (2,5) : False,
-  (5,6) : False,
-  (6,7) : True,
-  (4,7) : True,
-  (6,9) : False,
-  (8,9) : False,
-  (7,8) : True,
-  (8,10) : False,
-  (10,11) : False,
-  (0,11) : True
-} # list of (v1,v2), attached boolean
+edges = {
+  (0,1) : 0,
+  (1,2) : 1,
+  (2,3) : 2,
+  (0,3) : 3,
+  (3,4) : 4,
+  (4,5) : 5,
+  (2,5) : 6,
+  (5,6) : 7,
+  (6,7) : 8,
+  (4,7) : 9,
+  (6,9) : 10,
+  (8,9) : 11,
+  (7,8) : 12,
+  (8,10) : 13,
+  (10,11) : 14,
+  (0,11) : 15
+} # the smaller vertex must be listed first
+
+isEdgeAttached = [
+  True,
+  False, 
+  True,
+  True,
+  True,
+  True,
+  False,
+  False,
+  True,
+  True,
+  False,
+  False,
+  True,
+  False,
+  False,
+  True
+]
 
 # Say all edges were unattached (floating terrain piece), then face data required
-# This bit needs work
+# This bit needs work, because once one face is know, the others can be inferred depending on the edge crossed
 faces = [
   ([0,1,2,3], 'B'),
   ([2,6,5,4], 'W'),
@@ -48,7 +67,7 @@ contiguousVertices = []
 for v in verts2D:
   contiguousVertices.append([])
 
-for (v1,v2) in isEdgeAttached.keys():
+for (v1,v2) in edges.keys():
   contiguousVertices[v1].append(v2)
   contiguousVertices[v2].append(v1)
 
@@ -77,6 +96,17 @@ isoCoordNormToAzimuth = {
   (-1,1) : 300
 }
 
+def length(vector2):
+  x,y = vector2
+  if (x == 0):
+    return abs(y)
+  else:
+    return abs(x)
+
+def scale(vector3, c):
+  x,y,z = vector3
+  return (c*x,c*y,c*z)
+
 def azimuth(vector2):
   x,y = vector2
   return isoCoordNormToAzimuth[(normalise(x), normalise(y))]
@@ -101,8 +131,8 @@ coplanarXToVector3 = {
   60  : (0,1,1),
   120 : (0,0,1),
   180 : (0,-1,0),
-  240 : (1,0,0),
-  300 : (0,-1,-1)
+  240 : (0,-1,-1),
+  300 : (0,0,-1)
 }
 
 coplanarYToVector3 = {
@@ -117,7 +147,7 @@ coplanarYToVector3 = {
 coplanarZToVector3 = {
   0   : (0,1,0),
   60  : (-1,0,0),
-  120 : (-1,0,-1),
+  120 : (-1,-1,0),
   180 : (0,-1,0),
   240 : (1,0,0),
   300 : (1,1,0)
@@ -132,15 +162,21 @@ colourToDisplacements = {
 def unattachedEdgeToVector3(axisAngle, colour):
   return colourToDisplacements[colour][axisAngle]
 
-def displacement(vertex1, vertex2):
-  delta = subtract2(verts2D[vertex1], verts2D[vertex2])
+def displacement(v1, v2):
+  print "Entering displacement"
+  delta = subtract2(verts2D[v2], verts2D[v1])
+  print "Delta: ", delta
+  scaleFactor = length(delta)
+  print "Length: ", scaleFactor
   axisAngle = azimuth(delta)
-  attached = isEdgeAttached[(vertex1, vertex2)]
-  if (attached):
-    return attachedEdgeToVector3[axisAngle]
+  print "angle: ", axisAngle
+  edge = edges[(min(v1,v2), max(v1,v2))] 
+  if (isEdgeAttached[edge]):
+    unit = attachedEdgeToVector3[axisAngle]
   else:
-    edge = f(vertex1, vertex2) # but dictionaries are unordered. we need an array of edge
-    return unattachedEdgeToVector3(axisAngle, faceColour(edge))
+    unit = unattachedEdgeToVector3(axisAngle, faceColour(edge))
+  print "Unit: ",unit,"\n\n"
+  return scale(unit, scaleFactor)
 
 # verts3D[0] = offset
 offset = (0,0,0)
@@ -158,13 +194,10 @@ def DFS(v1):
   print "DFS meets ", v1
   seenVerts.append(v1)
   for v2 in contiguousVertices[v1]:
-    print "Crossed edge to", v2
     if (v2 not in seenVerts):
       verts3D[v2] = add3(verts3D[v1], displacement(v1, v2))
-      print "Inserted ", v2, "into 3d verts"
+      print "Inserted ", v2, "into 3d verts with value ", verts3D[v2] 
       DFS(v2)
-    else:
-      print "Already seen ", v2, " no recurse"
 
 DFS(0)
 
