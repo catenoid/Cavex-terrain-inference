@@ -61,8 +61,6 @@ faces = [
   ([3,4,9,12,13,14,15], 'G')
 ]
 
-print "Building vertex dictionary:"
-
 contiguousVertices = []
 for v in verts2D:
   contiguousVertices.append([])
@@ -163,40 +161,30 @@ def unattachedEdgeToVector3(axisAngle, colour):
   return colourToDisplacements[colour][axisAngle]
 
 def displacement(v1, v2):
-  print "Entering displacement"
   delta = subtract2(verts2D[v2], verts2D[v1])
-  print "Delta: ", delta
   scaleFactor = length(delta)
-  print "Length: ", scaleFactor
   axisAngle = azimuth(delta)
-  print "angle: ", axisAngle
   edge = edges[(min(v1,v2), max(v1,v2))] 
   if (isEdgeAttached[edge]):
     unit = attachedEdgeToVector3[axisAngle]
   else:
     unit = unattachedEdgeToVector3(axisAngle, faceColour(edge))
-  print "Unit: ",unit,"\n\n"
   return scale(unit, scaleFactor)
 
 # verts3D[0] = offset
 offset = (0,0,0)
 
-print "Building 3d Verts array:"
 verts3D = []
 for v in verts2D: 
   verts3D.append(0)
 
-print verts3D
-
 verts3D[0] = offset
 seenVerts = []
 def DFS(v1):
-  print "DFS meets ", v1
   seenVerts.append(v1)
   for v2 in contiguousVertices[v1]:
     if (v2 not in seenVerts):
       verts3D[v2] = add3(verts3D[v1], displacement(v1, v2))
-      print "Inserted ", v2, "into 3d verts with value ", verts3D[v2] 
       DFS(v2)
 
 DFS(0)
