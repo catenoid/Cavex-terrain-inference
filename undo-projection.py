@@ -10,7 +10,11 @@ verts2D = [
   (-2,4),
   (0,4),
   (-2,3),
-  (-3,3)
+  (-3,3),
+  (0,-1),
+  (6,-1),
+  (0,5),
+  (-6,5)
 ] # list of (a,b)
 
 edges = {
@@ -29,7 +33,12 @@ edges = {
   (7,8) : 12,
   (8,10) : 13,
   (10,11) : 14,
-  (0,11) : 15
+  (0,11) : 15,
+  (12,13) : 16,
+  (13,14) : 17,
+  (14,15) : 18,
+  (12,15) : 19,
+  (0,12) : 20 # Cut in ground plane
 } # the smaller vertex must be listed first
 
 isEdgeAttached = [
@@ -48,17 +57,23 @@ isEdgeAttached = [
   True,
   False,
   False,
-  True
+  True,
+  False,
+  False,
+  False,
+  False,
+  False # This requires some thinking
 ]
 
 # Say all edges were unattached (floating terrain piece), then face data required
-# This bit needs work, because once one face is know, the others can be inferred depending on the edge crossed
+# This bit needs work, because once one face is known, the others can be inferred depending on the edge crossed
 faces = [
   ([0,3,2,1], 'B'),
   ([2,4,5,6], 'W'),
   ([5,9,8,7], 'B'),
   ([8,12,11,10], 'W'),
-  ([3,15,14,13,12,9,4], 'G')
+  ([3,15,14,13,12,9,4], 'G'),
+  ([19,18,17,16,20,0,1,6,7,10,11,13,14,15,20], 'W')  # has a hole in
 ]
 
 contiguousVertices = []
