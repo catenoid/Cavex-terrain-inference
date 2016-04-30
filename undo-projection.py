@@ -54,11 +54,11 @@ isEdgeAttached = [
 # Say all edges were unattached (floating terrain piece), then face data required
 # This bit needs work, because once one face is know, the others can be inferred depending on the edge crossed
 faces = [
-  ([0,1,2,3], 'B'),
-  ([2,6,5,4], 'W'),
-  ([5,7,8,9], 'B'),
-  ([8,10,11,12], 'W'),
-  ([3,4,9,12,13,14,15], 'G')
+  ([0,3,2,1], 'B'),
+  ([2,4,5,6], 'W'),
+  ([5,9,8,7], 'B'),
+  ([8,12,11,10], 'W'),
+  ([3,15,14,13,12,9,4], 'G')
 ]
 
 contiguousVertices = []
