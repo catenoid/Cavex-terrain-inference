@@ -62,7 +62,7 @@ isEdgeAttached = [
   False,
   False,
   False,
-  False # This requires some thinking
+  False # The coplanar cut must be unattached or else the algorithm infers (1,0,1) incorrectly as (0,-1,0)
 ]
 
 # Say all edges were unattached (floating terrain piece), then face data required
@@ -76,13 +76,13 @@ faces = [
   ([19,18,17,16,20,0,1,6,7,10,11,13,14,15,20], 'W')  # has a hole in
 ]
 
-contiguousVertices = []
+adjacentVertices = []
 for v in verts2D:
-  contiguousVertices.append([])
+  adjacentVertices.append([])
 
 for (v1,v2) in edges.keys():
-  contiguousVertices[v1].append(v2)
-  contiguousVertices[v2].append(v1)
+  adjacentVertices[v1].append(v2)
+  adjacentVertices[v2].append(v1)
 
 def add3(v1,v2):
   v1_x, v1_y, v1_z = v1
@@ -133,6 +133,8 @@ attachedEdgeToVector3 = {
   300 : (0,0,-1)
 }
 
+# There can be two face colours for an unattached edge if there is a plane behind it.
+# This only finds the first. I need the facility to find the foreground face and the background face.
 def faceColour(searchedEdge):
   for (edgeList, colour) in faces:
     for edge in edgeList:
@@ -175,11 +177,14 @@ colourToDisplacements = {
 def unattachedEdgeToVector3(axisAngle, colour):
   return colourToDisplacements[colour][axisAngle]
 
+def getEdge(v1,v2):
+  return edges[(min(v1,v2), max(v1,v2))]
+
 def displacement(v1, v2):
   delta = subtract2(verts2D[v2], verts2D[v1])
   scaleFactor = length(delta)
   axisAngle = azimuth(delta)
-  edge = edges[(min(v1,v2), max(v1,v2))] 
+  edge = getEdge(v1,v2) 
   if (isEdgeAttached[edge]):
     unit = attachedEdgeToVector3[axisAngle]
   else:
@@ -194,16 +199,44 @@ for v in verts2D:
   verts3D.append(0)
 
 verts3D[0] = offset
-seenVerts = []
-def DFS(v1):
-  seenVerts.append(v1)
-  for v2 in contiguousVertices[v1]:
-    if (v2 not in seenVerts):
-      verts3D[v2] = add3(verts3D[v1], displacement(v1, v2))
-      DFS(v2)
+seen = []
 
-DFS(0)
+def foregroundTraversal(v1):
+  seen.append(v1)
+  unattachedEdgeCount = 0
+  for v2 in adjacentVertices[v1]:
+    edge = getEdge(v1,v2) 
+    if (!isEdgeAttached[edge]):
+      unattachedEdgeCount += 1
+    if (v2 not in seenVerts):
+      verts3D[v2] = add3(verts3D[v1], foregroundDisplacement(v1, v2))
+      foregroundTraversal(v2)
+  if (unattachedEdgeCount == 1):
+    backgroundTraversal(v1)
+
+# Required for vertices 2,5,6,9,8,10
+def backgroundTraversal(v1):
+  path = []
+  firstVert = v1
+  aliasedVerts3D = [verts3D[v1]]
+  traceProjectedEdges(v1)
+  def traceProjectedEdges(v1):
+    path.append(v1)
+    pathEnded = True
+    nextVertex = v1
+    for v2 in adjacentVertices[v1]:
+      if (!isEdgeAttached[getEdge(v1,v2)] and v2 not in path):
+        pathEnded = False
+        nextVertex = v2
+    if (!pathEnded):
+      aliasedVerts3D.append(add3(aliasedVerts3D[-1], backgroundDisplacement(v1, nextVertex)))
+      traceProjectedEdges(v2)
+  # two list comprehensions
+  # edges to add: [ (firstVert, len(verts3D)+1) ... (len(verts3D)+len(path), len(verts3D)+len(path)+1) ]
+  # background face to change: replace foreground verts3D with [firstVert, len(verts3D)+1, ..., firstVert+len(path)+1]
+  verts3D.append(aliasedVerts3D[1:-1])
+
+foregroundTraversal(0)
 
 for vector in verts3D:
   print vector
-
