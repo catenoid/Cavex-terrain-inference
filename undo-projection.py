@@ -215,26 +215,29 @@ def foregroundTraversal(v1):
     backgroundTraversal(v1)
 
 # Required for vertices 2,5,6,9,8,10
+# I swear this is going to drive me fucking insane. Ultimatum: For now, ONLY TRY AND SUPPORT LINEAR UNATTACHED GRAPHS
 def backgroundTraversal(v1):
   path = []
-  firstVert = v1
   aliasedVerts3D = [verts3D[v1]]
   traceProjectedEdges(v1)
+  vertsToAdd = aliasedVerts3D[1:-1]
+  firstNewVertex = len(verts3D) # is it possible to have no new vertices?
+  lastNewVertex = firstNewVertex + len(vertsToAdd) - 1
+  pathVertices = range(firstNewVertex, lastNewVertex)
+  connect = lambda i : (i,i+1)
+  pathEdges = map(connect, pathVertices))
+  edges = (v1, firstNewVertex) + pathEdges + (lastNewVertex, path[-1])
+  # we know what we want to add to faces, because the edges are added sequentially. But where?
+  # background face to change: replace foreground verts3D with [firstVert, len(verts3D)+1, ..., firstVert+len(path)+1]
+  verts3D.append(vertsToAdd)
+
   def traceProjectedEdges(v1):
     path.append(v1)
-    pathEnded = True
-    nextVertex = v1
     for v2 in adjacentVertices[v1]:
       if (!isEdgeAttached[getEdge(v1,v2)] and v2 not in path):
-        pathEnded = False
-        nextVertex = v2
-    if (!pathEnded):
-      aliasedVerts3D.append(add3(aliasedVerts3D[-1], backgroundDisplacement(v1, nextVertex)))
-      traceProjectedEdges(v2)
-  # two list comprehensions
-  # edges to add: [ (firstVert, len(verts3D)+1) ... (len(verts3D)+len(path), len(verts3D)+len(path)+1) ]
-  # background face to change: replace foreground verts3D with [firstVert, len(verts3D)+1, ..., firstVert+len(path)+1]
-  verts3D.append(aliasedVerts3D[1:-1])
+        aliasedVerts3D.append(add3(aliasedVerts3D[-1], backgroundDisplacement(v1, v2)))
+        traceProjectedEdges(v2)
+        break
 
 foregroundTraversal(0)
 
