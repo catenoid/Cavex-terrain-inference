@@ -76,13 +76,12 @@ faces = [
   ([19,18,17,16,20,0,1,6,7,10,11,13,14,15,20], 'W')  # has a hole in
 ]
 
-adjacentVertices = []
-for v in verts2D:
-  adjacentVertices.append([])
+adjacentVertices = [[] for v in verts2D]
 
 for (v1,v2) in edges.keys():
-  adjacentVertices[v1].append(v2)
-  adjacentVertices[v2].append(v1)
+  if (isEdgeAttached[edges[(v1,v2)]]): # only add the attached
+    adjacentVertices[v1].append(v2)
+    adjacentVertices[v2].append(v1)
 
 def add3(v1,v2):
   v1_x, v1_y, v1_z = v1
@@ -180,39 +179,36 @@ def unattachedEdgeToVector3(axisAngle, colour):
 def getEdge(v1,v2):
   return edges[(min(v1,v2), max(v1,v2))]
 
-def displacement(v1, v2):
-  delta = subtract2(verts2D[v2], verts2D[v1])
+def attachedDisplacement(delta):
   scaleFactor = length(delta)
   axisAngle = azimuth(delta)
-  edge = getEdge(v1,v2) 
-  if (isEdgeAttached[edge]):
-    unit = attachedEdgeToVector3[axisAngle]
-  else:
-    unit = unattachedEdgeToVector3(axisAngle, faceColour(edge))
+  unit = attachedEdgeToVector3[axisAngle]
   return scale(unit, scaleFactor)
 
-# verts3D[0] = offset
+def coplanarDisplacement(delta, colour):
+  scaleFactor = length(delta)
+  axisAngle = azimuth(delta)
+  unit = unattachedEdgeToVector3(axisAngle, colour)
+  return scale(unit, scaleFactor)
+
+verts3D = [0 for v in verts2D]
+
 offset = (0,0,0)
-
-verts3D = []
-for v in verts2D: 
-  verts3D.append(0)
-
 verts3D[0] = offset
 seen = []
 
 def foregroundTraversal(v1):
   seen.append(v1)
-  unattachedEdgeCount = 0
   for v2 in adjacentVertices[v1]:
-    edge = getEdge(v1,v2) 
-    if (!isEdgeAttached[edge]):
-      unattachedEdgeCount += 1
-    if (v2 not in seenVerts):
-      verts3D[v2] = add3(verts3D[v1], foregroundDisplacement(v1, v2))
+    if (v2 not in seen):
+      delta = subtract2(verts2D[v2], verts2D[v1])
+      verts3D[v2] = add3(verts3D[v1], attachedDisplacement(delta))
       foregroundTraversal(v2)
-  if (unattachedEdgeCount == 1):
-    backgroundTraversal(v1)
+
+print "performing foreground traversal"
+foregroundTraversal(0)
+for vector in verts3D:
+  print vector
 
 # Required for vertices 2,5,6,9,8,10
 # I swear this is going to drive me fucking insane. Ultimatum: For now, ONLY TRY AND SUPPORT LINEAR UNATTACHED GRAPHS
@@ -222,31 +218,65 @@ def foregroundTraversal(v1):
 # how about when doing the foreground traversal, build up the unattached edge graph
 # then break it up into paths/segments/lines whatever these things are called
 # Walk them, starting with the backgorund vertex (ie the new one) if at a join...
-def backgroundTraversal(v1):
-  path = []
-  aliasedVerts3D = [verts3D[v1]]
-  traceProjectedEdges(v1)
-  vertsToAdd = aliasedVerts3D[1:-1]
-  firstNewVertex = len(verts3D) # is it possible to have no new vertices? if so this needs fixing
-  lastNewVertex = firstNewVertex + len(vertsToAdd) - 1
-  pathVertices = range(firstNewVertex, lastNewVertex)
-  connect = lambda i : (i,i+1)
-  pathEdges = map(connect, pathVertices))
-  edgesToAdd = (v1, firstNewVertex) + pathEdges + (lastNewVertex, path[-1])
-  # faces to change
-  # replace the edge list segment for the background face with edgesToAdd
-  verts3D.append(vertsToAdd)
-  # edges is a dictionary, not a list (why... why... god why)
 
-  def traceProjectedEdges(v1):
-    path.append(v1)
-    for v2 in adjacentVertices[v1]:
-      if (!isEdgeAttached[getEdge(v1,v2)] and v2 not in path):
-        aliasedVerts3D.append(add3(aliasedVerts3D[-1], backgroundDisplacement(v1, v2)))
-        traceProjectedEdges(v2)
-        break
+print "performing background traversal"
+path = [1,2,5,6,9,8,10,11]
+#backgroundTraversal(path)
 
-foregroundTraversal(0)
+colourPairs = [ # (fg,bg)...
+  ('b','w'), #1
+  ('w','w'), #6
+  ('b','w'), #7
+  ('w','w'), #10
+  ('w','w'), #11
+  ('w','w'), #13
+  ('g','w'), #14
+]
 
-for vector in verts3D:
-  print vector
+
+deltaList = []
+
+# we want
+aliased = [ # fg, bg 3d verts
+  ((x,y,z), (x,y,z)),
+  ((x,y,z), (x,y,z)),
+]
+
+isoDelta = lambda (v1,v2) : subtract2(verts2D[v2], verts2D[v1])
+
+def backgroundTraversal(path):
+  vertexPairs = []
+  v1 = path[0]
+  for v2 in path[1:]:
+    vertexPairs.append((v1,v2))
+  isoDeltaPath = map(isoDelta, vertexPairs)
+
+  colouredPath = zip(isoDeltaPath, unattachedEdgeColourTransitions)
+  for (delta, (fg_colour, bg_colour)) in colouredPath:
+    coplanarDisplacement(delta, fg_colour)
+
+  f = lambda (delta, (fg_colour, bg_colour)) : coplanarDisplacement(delta, fg_colour)
+  # my brain is starting to leak out through my ear
+  add3(last, )
+  aliased = map(f, colouredPath)
+  vertsToAdd = aliased[1:-1]
+  #firstNewVertex = len(verts3D)
+  #lastNewVertex = firstNewVertex + len(vertsToAdd) - 1
+  #pathVertices = range(firstNewVertex, lastNewVertex)
+  #connect = lambda i : (i,i+1)
+  #pathEdges = map(connect, pathVertices)
+  #edgesToAdd = (v1, firstNewVertex) + pathEdges + (lastNewVertex, path[-1])
+  # faces to change: replace the edge list segment for the background face with edgesToAdd
+  for v in vertsToAdd:
+    print v
+  for e in edgesToAdd:
+    print e
+
+#  def traceProjectedEdges(v1):
+#    path.append(v1)
+#    for v2 in adjacentVertices[v1]:
+#      if (not isEdgeAttached[getEdge(v1,v2)] and v2 not in path):
+#        aliasedVerts3D.append(add3(aliasedVerts3D[-1], backgroundDisplacement(v1, v2)))
+#        traceProjectedEdges(v2)
+#        break
+
