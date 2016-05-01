@@ -216,20 +216,27 @@ def foregroundTraversal(v1):
 
 # Required for vertices 2,5,6,9,8,10
 # I swear this is going to drive me fucking insane. Ultimatum: For now, ONLY TRY AND SUPPORT LINEAR UNATTACHED GRAPHS
+# split branching paths into lines. A connecting triple with begin with the aliasedVert3D for its v1
+# because of the way the projection works, the upper face is the background face
+# lower face is foreground
+# how about when doing the foreground traversal, build up the unattached edge graph
+# then break it up into paths/segments/lines whatever these things are called
+# Walk them, starting with the backgorund vertex (ie the new one) if at a join...
 def backgroundTraversal(v1):
   path = []
   aliasedVerts3D = [verts3D[v1]]
   traceProjectedEdges(v1)
   vertsToAdd = aliasedVerts3D[1:-1]
-  firstNewVertex = len(verts3D) # is it possible to have no new vertices?
+  firstNewVertex = len(verts3D) # is it possible to have no new vertices? if so this needs fixing
   lastNewVertex = firstNewVertex + len(vertsToAdd) - 1
   pathVertices = range(firstNewVertex, lastNewVertex)
   connect = lambda i : (i,i+1)
   pathEdges = map(connect, pathVertices))
-  edges = (v1, firstNewVertex) + pathEdges + (lastNewVertex, path[-1])
-  # we know what we want to add to faces, because the edges are added sequentially. But where?
-  # background face to change: replace foreground verts3D with [firstVert, len(verts3D)+1, ..., firstVert+len(path)+1]
+  edgesToAdd = (v1, firstNewVertex) + pathEdges + (lastNewVertex, path[-1])
+  # faces to change
+  # replace the edge list segment for the background face with edgesToAdd
   verts3D.append(vertsToAdd)
+  # edges is a dictionary, not a list (why... why... god why)
 
   def traceProjectedEdges(v1):
     path.append(v1)
