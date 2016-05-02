@@ -1,4 +1,4 @@
-# Representing a drawing on isometric paper as an undirected graph:
+# Representing a drawing on isometric paper:
 # Orient the paper with one set of graticules vertically upright
 # (Terminology: azimuth = degrees clockwise from "north," in this case, towards the top of the page)
 
@@ -21,7 +21,7 @@ verts2D = [
   (0,-1),
   (6,-1),
   (0,5),
-  (-6,5)
+  (-6,5),
 ]
 
 # Representing connections between points on isometric paper with a vertex pair (indexed into verts2D)
@@ -58,7 +58,7 @@ def normalise(x):
   else:
     return x/abs(x)
 
-isoCoordNormToAzimuth = {
+deltaToAzimuth = {
   (0,1) : 0,
   (1,0) : 60,
   (1,-1) : 120,
@@ -80,7 +80,7 @@ def scale(vector3, c):
 
 def azimuth(vector2):
   x,y = vector2
-  return isoCoordNormToAzimuth[(normalise(x), normalise(y))]
+  return deltaToAzimuth[(normalise(x), normalise(y))]
 
 # Moving coplanar in 3D space:
 # Conversion between the azimuth (from the isometric paper diagram) and the equivalent (x,y,z) displacement
@@ -116,19 +116,16 @@ coplanarZToVector3 = {
 # Grey 'g': +x normal
 # Black 'b': +z normal
 # (Legacy notation from drafting on paper and shading in, to replace)
-colourToDisplacements = {
+coplanarDisplacements = {
   'w' : coplanarYToVector3,
   'g' : coplanarXToVector3,
   'b' : coplanarZToVector3
 }
 
-def unattachedEdgeToVector3(axisAngle, colour):
-  return colourToDisplacements[colour][axisAngle]
-
 def coplanarDisplacement(delta, colour):
   scaleFactor = length(delta)
   axisAngle = azimuth(delta)
-  unit = unattachedEdgeToVector3(axisAngle, colour)
+  unit = coplanarDisplacements[colour][axisAngle]
   return scale(unit, scaleFactor)
 
 # Moving along concave/cavex edges in 3D space
@@ -148,10 +145,13 @@ def attachedDisplacement(delta):
   unit = attachedEdgeToVector3[axisAngle]
   return scale(unit, scaleFactor)
 
-verts3D = [0 for v in verts2D]
+def delta(vertexPair):
+  v1,v2 = vertexPair
+  return subtract2(verts2D[v2], verts2D[v1])
 
 # The 2D coordinate (0,0) will be anchored to offset in 3D space
 offset = (0,0,0)
+verts3D = [0 for v in verts2D]
 verts3D[0] = offset
 seen = []
 
@@ -159,8 +159,7 @@ def foregroundTraversal(v1):
   seen.append(v1)
   for v2 in adjacentVertices[v1]:
     if (v2 not in seen):
-      delta = subtract2(verts2D[v2], verts2D[v1])
-      verts3D[v2] = add3(verts3D[v1], attachedDisplacement(delta))
+      verts3D[v2] = add3(verts3D[v1], attachedDisplacement(delta((v1,v2))))
       foregroundTraversal(v2)
 
 print "Performing foreground traversal"
@@ -170,11 +169,13 @@ for v in verts3D:
   print v
 
 # The unattached form a closed face with no area
-# actually not really
 # When walking this face, use coplanar calculations with the outside colour
-# double counts the foreground verts, but without, we would miss 9,10 (only unattached edges)
+# Double counts the foreground verts, but without, we would miss 9,10 (only unattached edges)
 print "Performing background traversal"
 
+# A graph for each acyclic graph of unattached edges
+# I tihnk the ground plane boundary needs to be treated differently
+# It's colours are interiors, whereas the rest are exterior
 unattachedPaths = [ # directed CCW, colour on inside (??? Fix this)
 [ # Ground plane boundary
   ((0,12), 'w'),
@@ -202,27 +203,29 @@ unattachedPaths = [ # directed CCW, colour on inside (??? Fix this)
 ]
 ]
 
-def coplanarDeltaPath(path):
-  pathDeltas = []
-  for ((v1,v2), colour) in path:
-    delta = subtract2(verts2D[v2], verts2D[v1])
-    pathDeltas.append(coplanarDisplacement(delta, colour))
-  return pathDeltas
+def aliasedDeltaPath(path):
+  deltas3D = []
+  for (vertexPair, colour) in path:
+    deltas3D.append(coplanarDisplacement(delta(vertexPair), colour))
+  return deltas3D
 
-def dealiasing(pathDeltas, startingVertex):
-  print "path starting at ",startingVertex
+def dealias(pathDeltas, startingVertex):
   dealiasedVerts = []
-  v = startingVertex #verts3D[path[0][0][0]]
+  v = startingVertex
   for dv in pathDeltas:
     nextVertex = add3(v,dv)
     dealiasedVerts.append(nextVertex)
     v = nextVertex
-  for v in dealiasedVerts:
-    print v
+  return dealiasedVerts
 
 for path in unattachedPaths:
-  v1 = path[0][0][0]
-  dealiasing(coplanarDeltaPath(path), verts3D[v1])
+  v1 = verts3D[path[0][0][0]]
+  # start the path at a vertex where the path goes ..(a,b), (b,a).. possibly cyclically
+  # if no such vertex exists, anywhere's fine as long as that vertex has been assigned in verts3D
+  print "path starting at ",v1
+  dealiasedVerts = dealias(aliasedDeltaPath(path), v1)
+  for v in dealiasedVerts:
+    print v
 
 # Below: introducting edges for the dealiased vertices
   #vertsToAdd = aliased[1:-1]
