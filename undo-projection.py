@@ -193,23 +193,28 @@ unattachedPaths = [ # directed CCW, colour on inside (??? Fix this)
 ]
 ]
 
-def backgroundTraversal(path):
+def coplanarDeltaPath(path):
   pathDeltas = []
   for ((v1,v2), colour) in path:
     delta = subtract2(verts2D[v2], verts2D[v1])
     pathDeltas.append(coplanarDisplacement(delta, colour))
-  aliasedVerts3D = []
-  v = verts3D[path[0][0][0]]
+  return pathDeltas
+
+def dealiasing(pathDeltas, startingVertex):
+  print "path starting at ",startingVertex
+  dealiasedVerts = []
+  v = startingVertex #verts3D[path[0][0][0]]
   for dv in pathDeltas:
     nextVertex = add3(v,dv)
-    aliasedVerts3D.append(nextVertex)
+    dealiasedVerts.append(nextVertex)
     v = nextVertex
-  for v in aliasedVerts3D:
+  for v in dealiasedVerts:
     print v
 
 for path in unattachedPaths:
-  print "starting new bg path"
-  backgroundTraversal(path)
+  v1 = path[0][0][0]
+  dealiasing(coplanarDeltaPath(path), verts3D[v1])
+
   #vertsToAdd = aliased[1:-1]
   #firstNewVertex = len(verts3D)
   #lastNewVertex = firstNewVertex + len(vertsToAdd) - 1
