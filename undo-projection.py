@@ -18,34 +18,27 @@ verts2D = [
   (0,4),
   (-2,3),
   (-3,3),
+  (0,-1),
+  (6,-1),
+  (0,5),
+  (-6,5)
 ]
-#  (0,-1),
-#  (6,-1),
-#  (0,5),
-#  (-6,5)
-#]
 
 # Representing connections between points on isometric paper with a vertex pair (indexed into verts2D)
-attachedEdges = {
-  (0,1) : 0,
-  (2,3) : 2,
-  (0,3) : 3,
-  (3,4) : 4,
-  (4,5) : 5,
-  (6,7) : 8,
-  (4,7) : 9,
-  (7,8) : 12,
-  (0,11) : 15,
-}
-#  (12,13) : 16,
-#  (13,14) : 17,
-#  (14,15) : 18,
-#  (12,15) : 19,
-#  (0,12) : 20 # Cut in ground plane
-#} # the smaller vertex must be listed first
+attachedEdges = [
+  (0,1),
+  (2,3),
+  (0,3),
+  (3,4),
+  (4,5),
+  (6,7),
+  (4,7),
+  (7,8),
+  (0,11),
+]
 
 adjacentVertices = [[] for v in verts2D]
-for (v1,v2) in attachedEdges.keys():
+for (v1,v2) in attachedEdges:
   adjacentVertices[v1].append(v2)
   adjacentVertices[v2].append(v1)
 
@@ -168,10 +161,21 @@ for v in verts3D:
   print v
 
 # The unattached form a closed face with no area
+# actually not really
 # When walking this face, use coplanar calculations with the outside colour
 # double counts the foreground verts, but without, we would miss 9,10 (only unattached edges)
 print "Performing background traversal"
-UEColours = [ # directed CW
+
+unattachedPaths = [ # directed CCW, colour on inside (??? Fix this)
+[ # Ground plane boundary
+  ((0,12), 'w'),
+  ((12,13), 'w'),
+  ((13,14), 'w'),
+  ((14,15), 'w'),
+  ((15,12), 'w'),
+  ((12,0), 'w'),
+],
+[ # Back of steps
   ((11,10), 'w'),
   ((10,8), 'w'),
   ((8,9), 'w'),
@@ -187,14 +191,15 @@ UEColours = [ # directed CW
   ((8,10), 'g'),
   ((10,11), 'g')
 ]
+]
 
-def backgroundTraversal():
+def backgroundTraversal(path):
   pathDeltas = []
-  for ((v1,v2), colour) in UEColours:
+  for ((v1,v2), colour) in path:
     delta = subtract2(verts2D[v2], verts2D[v1])
     pathDeltas.append(coplanarDisplacement(delta, colour))
   aliasedVerts3D = []
-  v = verts3D[11] # start on an edge with only one unattached
+  v = verts3D[path[0][0][0]]
   for dv in pathDeltas:
     nextVertex = add3(v,dv)
     aliasedVerts3D.append(nextVertex)
@@ -202,7 +207,9 @@ def backgroundTraversal():
   for v in aliasedVerts3D:
     print v
 
-backgroundTraversal()
+for path in unattachedPaths:
+  print "starting new bg path"
+  backgroundTraversal(path)
   #vertsToAdd = aliased[1:-1]
   #firstNewVertex = len(verts3D)
   #lastNewVertex = firstNewVertex + len(vertsToAdd) - 1
