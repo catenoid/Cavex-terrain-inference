@@ -82,15 +82,8 @@ def azimuth(vector2):
   x,y = vector2
   return isoCoordNormToAzimuth[(normalise(x), normalise(y))]
 
-attachedEdgeToVector3 = {
-  0   : (0,1,0),
-  60  : (-1,0,0),
-  120 : (0,0,1),
-  180 : (0,-1,0),
-  240 : (1,0,0),
-  300 : (0,0,-1)
-}
-
+# Moving coplanar in 3D space:
+# Conversion between the azimuth (from the isometric paper diagram) and the equivalent (x,y,z) displacement
 coplanarXToVector3 = {
   0   : (0,1,0),
   60  : (0,1,1),
@@ -118,6 +111,11 @@ coplanarZToVector3 = {
   300 : (1,1,0)
 }
 
+# Colours
+# White 'w': +y normal
+# Grey 'g': +x normal
+# Black 'b': +z normal
+# (Legacy notation from drafting on paper and shading in, to replace)
 colourToDisplacements = {
   'w' : coplanarYToVector3,
   'g' : coplanarXToVector3,
@@ -127,16 +125,27 @@ colourToDisplacements = {
 def unattachedEdgeToVector3(axisAngle, colour):
   return colourToDisplacements[colour][axisAngle]
 
-def attachedDisplacement(delta):
-  scaleFactor = length(delta)
-  axisAngle = azimuth(delta)
-  unit = attachedEdgeToVector3[axisAngle]
-  return scale(unit, scaleFactor)
-
 def coplanarDisplacement(delta, colour):
   scaleFactor = length(delta)
   axisAngle = azimuth(delta)
   unit = unattachedEdgeToVector3(axisAngle, colour)
+  return scale(unit, scaleFactor)
+
+# Moving along concave/cavex edges in 3D space
+# Conversion between the azimuth (from the isometric paper diagram) and the equivalent (x,y,z) displacement
+attachedEdgeToVector3 = {
+  0   : (0,1,0),
+  60  : (-1,0,0),
+  120 : (0,0,1),
+  180 : (0,-1,0),
+  240 : (1,0,0),
+  300 : (0,0,-1)
+}
+
+def attachedDisplacement(delta):
+  scaleFactor = length(delta)
+  axisAngle = azimuth(delta)
+  unit = attachedEdgeToVector3[axisAngle]
   return scale(unit, scaleFactor)
 
 verts3D = [0 for v in verts2D]
@@ -215,6 +224,7 @@ for path in unattachedPaths:
   v1 = path[0][0][0]
   dealiasing(coplanarDeltaPath(path), verts3D[v1])
 
+# Below: introducting edges for the dealiased vertices
   #vertsToAdd = aliased[1:-1]
   #firstNewVertex = len(verts3D)
   #lastNewVertex = firstNewVertex + len(vertsToAdd) - 1
