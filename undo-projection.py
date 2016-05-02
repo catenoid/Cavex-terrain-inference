@@ -1,3 +1,10 @@
+# Representing a drawing on isometric paper as an undirected graph:
+# Orient the paper with one set of graticules vertically upright
+# (Terminology: azimuth = degrees clockwise from "north," in this case, towards the top of the page)
+
+# Representing 2D coordinates:
+# +Primary axis: azimuth = 60
+# +Secondary axis: azimuth = 0
 verts2D = [
   (0,0),
   (3,0),
@@ -11,13 +18,15 @@ verts2D = [
   (0,4),
   (-2,3),
   (-3,3),
-  (0,-1),
-  (6,-1),
-  (0,5),
-  (-6,5)
-] # list of (a,b)
+]
+#  (0,-1),
+#  (6,-1),
+#  (0,5),
+#  (-6,5)
+#]
 
-AE = {
+# Representing connections between points on isometric paper with a vertex pair (indexed into verts2D)
+attachedEdges = {
   (0,1) : 0,
   (2,3) : 2,
   (0,3) : 3,
@@ -36,7 +45,7 @@ AE = {
 #} # the smaller vertex must be listed first
 
 adjacentVertices = [[] for v in verts2D]
-for (v1,v2) in AE.keys():
+for (v1,v2) in attachedEdges.keys():
   adjacentVertices[v1].append(v2)
   adjacentVertices[v2].append(v1)
 
@@ -125,9 +134,6 @@ colourToDisplacements = {
 def unattachedEdgeToVector3(axisAngle, colour):
   return colourToDisplacements[colour][axisAngle]
 
-def getEdge(v1,v2):
-  return edges[(min(v1,v2), max(v1,v2))]
-
 def attachedDisplacement(delta):
   scaleFactor = length(delta)
   axisAngle = azimuth(delta)
@@ -141,11 +147,12 @@ def coplanarDisplacement(delta, colour):
   return scale(unit, scaleFactor)
 
 verts3D = [0 for v in verts2D]
+
+# The 2D coordinate (0,0) will be anchored to offset in 3D space
 offset = (0,0,0)
 verts3D[0] = offset
 seen = []
 
-# we only need to traverse edges that are noton the bounds of the zero area shape...
 def foregroundTraversal(v1):
   seen.append(v1)
   for v2 in adjacentVertices[v1]:
@@ -156,13 +163,14 @@ def foregroundTraversal(v1):
 
 print "Performing foreground traversal"
 foregroundTraversal(0)
-for vector in verts3D:
-  print vector
+print "Across attached edges, we find:"
+for v in verts3D:
+  print v
 
 # The unattached form a closed face with no area
 # When walking this face, use coplanar calculations with the outside colour
-print "performing background traversal"
-
+# double counts the foreground verts, but without, we would miss 9,10 (only unattached edges)
+print "Performing background traversal"
 UEColours = [ # directed CW
   ((11,10), 'w'),
   ((10,8), 'w'),
