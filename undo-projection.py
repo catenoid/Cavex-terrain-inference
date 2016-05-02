@@ -18,10 +18,10 @@ verts2D = [
   (0,4),
   (-2,3),
   (-3,3),
-  (0,-1),
-  (6,-1),
-  (0,5),
-  (-6,5),
+#  (0,-1),
+#  (6,-1),
+#  (0,5),
+#  (-6,5),
 ]
 
 # Representing connections between points on isometric paper with a vertex pair (indexed into verts2D)
@@ -164,27 +164,16 @@ def foregroundTraversal(v1):
 
 print "Performing foreground traversal"
 foregroundTraversal(0)
-print "Across attached edges, we find:"
-for v in verts3D:
-  print v
 
-# The unattached form a closed face with no area
-# When walking this face, use coplanar calculations with the outside colour
-# Double counts the foreground verts, but without, we would miss 9,10 (only unattached edges)
+# --- UNDER CONSTRUCTION ---
 print "Performing background traversal"
 
-# A graph for each acyclic graph of unattached edges
-# I tihnk the ground plane boundary needs to be treated differently
+# I think the ground plane boundary needs to be treated differently
 # It's colours are interiors, whereas the rest are exterior
-unattachedPaths = [ # directed CCW, colour on inside (??? Fix this)
-[ # Ground plane boundary
-  ((0,12), 'w'),
-  ((12,13), 'w'),
-  ((13,14), 'w'),
-  ((14,15), 'w'),
-  ((15,12), 'w'),
-  ((12,0), 'w'),
-],
+
+# List of unattached paths are acyclic graphs with each edge having two associated colours depending on the direction traversed
+
+unattachedPaths = [ # directed CW, colour on outside
 [ # Back of steps
   ((11,10), 'w'),
   ((10,8), 'w'),
@@ -218,22 +207,23 @@ def dealias(pathDeltas, startingVertex):
     v = nextVertex
   return dealiasedVerts
 
+edges = attachedEdges
+
 for path in unattachedPaths:
   v1 = verts3D[path[0][0][0]]
   # start the path at a vertex where the path goes ..(a,b), (b,a).. possibly cyclically
-  # if no such vertex exists, anywhere's fine as long as that vertex has been assigned in verts3D
-  print "path starting at ",v1
-  dealiasedVerts = dealias(aliasedDeltaPath(path), v1)
-  for v in dealiasedVerts:
-    print v
+  vertsToAdd = dealias(aliasedDeltaPath(path), v1)
+  firstNewVertex = len(verts3D) - 1
+  lastNewVertex = firstNewVertex + len(vertsToAdd)
+  pathVertices = range(firstNewVertex, lastNewVertex)
+  connect = lambda i : (i,i+1)
+  edgesToAdd = map(connect, pathVertices)
+  verts3D += vertsToAdd
+  edges += edgesToAdd
 
-# Below: introducting edges for the dealiased vertices
-  #vertsToAdd = aliased[1:-1]
-  #firstNewVertex = len(verts3D)
-  #lastNewVertex = firstNewVertex + len(vertsToAdd) - 1
-  #pathVertices = range(firstNewVertex, lastNewVertex)
-  #connect = lambda i : (i,i+1)
-  #pathEdges = map(connect, pathVertices)
-  #edgesToAdd = (v1, firstNewVertex) + pathEdges + (lastNewVertex, path[-1])
-  # faces to change: replace the edge list segment for the background face with edgesToAdd
-
+print "Found: "
+for i in range(len(verts3D)):
+  print i, ": ", verts3D[i]
+print "With edges:"
+for i in range(len(edges)):
+  print i, ": ", edges[i]
