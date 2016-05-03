@@ -151,7 +151,7 @@ def delta(vertexPair):
 
 # The 2D coordinate (0,0) will be anchored to offset in 3D space
 offset = (0,0,0)
-verts3D = [0 for v in verts2D]
+verts3D = ['undef' for v in verts2D]
 verts3D[0] = offset
 seen = []
 
@@ -166,12 +166,8 @@ print "Performing foreground traversal"
 foregroundTraversal(0)
 
 # --- UNDER CONSTRUCTION ---
-print "Performing background traversal"
-
 # I think the ground plane boundary needs to be treated differently
 # It's colours are interiors, whereas the rest are exterior
-
-# List of unattached paths are acyclic graphs with each edge having two associated colours depending on the direction traversed
 
 unattachedPaths = [ # directed CW, colour on outside
 [ # Back of steps
@@ -209,9 +205,9 @@ def dealias(pathDeltas, startingVertex):
 
 edges = attachedEdges
 
+# Start the path at vertex 'b' where path goes [..(a,b), (b,a)..] possibly cyclically
 for path in unattachedPaths:
   v1 = verts3D[path[0][0][0]]
-  # start the path at a vertex where the path goes ..(a,b), (b,a).. possibly cyclically
   vertsToAdd = dealias(aliasedDeltaPath(path), v1)
   firstNewVertex = len(verts3D) - 1
   lastNewVertex = firstNewVertex + len(vertsToAdd)
@@ -221,9 +217,41 @@ for path in unattachedPaths:
   verts3D += vertsToAdd
   edges += edgesToAdd
 
+# To do: Add the ground plane
+
 print "Found: "
 for i in range(len(verts3D)):
   print i, ": ", verts3D[i]
 print "With edges:"
 for i in range(len(edges)):
   print i, ": ", edges[i]
+
+# ---UNDER CONSTRUCTION---
+print "Removing duplicated vertices"
+duplicates = {} # 3D coordinate : [ vertices that refer to that coordinate]
+
+for oldIndex in range(len(verts3D)):
+  v = verts3D[oldIndex]
+  if (v != 'undef'):
+    if (duplicates.__contains__(v)):
+      duplicates[v].append(oldIndex)
+    else:
+      duplicates[v] = [oldIndex]
+
+nonDuplicatedVerts3D = duplicates.keys()
+
+# It's all so UGLY :(
+
+print "Final (?) vertex values"
+oldToNewIndex = ['undef' for v in verts3D]
+for newIndex in range(len(nonDuplicatedVerts3D)):
+  v = nonDuplicatedVerts3D[newIndex]
+  print "Vertex ",newIndex," : ",v
+  oldIndices = duplicates[v]
+  for i in oldIndices:
+    oldToNewIndex[i] = newIndex
+
+print "New edges:"
+for (v1,v2) in edges:
+  print (oldToNewIndex[v1], oldToNewIndex[v2])
+
