@@ -204,7 +204,7 @@ def dealias(path):
 
 edges = attachedEdges
 
-hiddenTerrainPaths = []
+unattachedEdgeLoops = []
 
 for path in unattachedPaths:
   vertsToAdd = dealias(path)
@@ -215,7 +215,7 @@ for path in unattachedPaths:
   edgesToAdd = map(connect, pathVertices)
   verts3D += vertsToAdd
   edges += edgesToAdd
-  hiddenTerrainPaths.append(pathVertices)
+  unattachedEdgeLoops.append(pathVertices)
 
 # Alias vertices that refer to the same 3D coordinate
 # This happens when an unattached edge path meets an attached edge, and the vertex is calculated twice
@@ -229,12 +229,12 @@ for oldIndex in range(len(verts3D)):
     else:
       duplicates[v] = [oldIndex]
 
-nonDuplicatedVerts3D = duplicates.keys()
+uniqueVerts3D = duplicates.keys()
 
-# Renumber the edges to according to nonDuplicatedVerts3D
+# Renumber the edges to according to uniqueVerts3D
 oldToNewIndex = ['undef' for v in verts3D]
-for newIndex in range(len(nonDuplicatedVerts3D)):
-  v = nonDuplicatedVerts3D[newIndex]
+for newIndex in range(len(uniqueVerts3D)):
+  v = uniqueVerts3D[newIndex]
   oldIndices = duplicates[v]
   for i in oldIndices:
     oldToNewIndex[i] = newIndex
@@ -243,44 +243,61 @@ newEdges = []
 for (v1,v2) in edges:
   newEdges.append((oldToNewIndex[v1], oldToNewIndex[v2]))
 
+hiddenTerrainPaths = map(lambda path : map(lambda v : oldToNewIndex[v], path), unattachedEdgeLoops)
 
 print "Vertices:"
-for i in range(len(nonDuplicatedVerts3D)):
-  print i,":",nonDuplicatedVerts3D[i]
+for i in range(len(uniqueVerts3D)):
+  print i,":",uniqueVerts3D[i]
 print "Edges:"
 for e in newEdges:
   print e
 
 # TRIANGULATE THIS MESH
-# triangles = [(v1,v2,v3), (v1,v3,v4), ..]
-# where v = (x,y,z)
+# Can triangule while in 2d, then convert
+# triangles = list of vertex triples
 # If surfaceNorm points in a negative direction, swap v2 and v3
 # where surfaceNorm = (v3-v2)x(v2-v1) / |(v3-v2)x(v2-v1)|
 # Visible terrain now prime for Unity
 
 # INFER HIDDEN TERRAIN
-# Map birds eye view over each hiddenTerrainPath, remove consecutive duplicates in (x,z) space
-# Subdivide in to white triangles
-# Assign a y value to each triangle based on heighest-to-remain-invisible-to-camera principle
-# Requires each triangular cell in the isometric projection to have a depth value based on the item in the foreground
-birdsEyeView = lambda (x,y,z) : (x,z)
+def birdsEyeView((x,y,z)):
+  return (x,z)
 
-def removeConsecutiveDuplicates(path):
-  noDuplicates = []
-  previous = path[0]
-  barrelShifted = path[1:] + [previous]
+def isXZaliased(v1,v2):
+  return birdsEyeView(v1) == birdsEyeView(v2)
+
+def groupXZAliased(path):
+  aliased = []
+  chord = [path[0]]
+  barrelShifted = path[1:] + [path[0]]
   for v in barrelShifted:
-    if (v != previous):
-      noDuplicates.append(v)
-      previous = v
-  return noDuplicates
+    if (isXZaliased(v, chord[-1])):
+      chord.append(v)
+    else:
+      aliased.append(chord)
+      chord = [v]
+  return aliased
 
-print "Paths in hidden terrain"
+def zeroArea(triangle):
+  v1,v2,v3 = triangle
+  return v1 == v2 or v2 == v3 or v1 == v3
+
+# For now, set the y value to be the minimum y encountered in verts3D
+# Eventually: Assign a y-value to each white plane segment based on heighest-to-remain-invisible-to-camera principle
+maximum_y = 0
+
+print "Triangles to join the hidden white shards to the visible mesh"
 for path in hiddenTerrainPaths:
-  path = map(birdsEyeView, map(lambda v : nonDuplicatedVerts3D[oldToNewIndex[v]], path))
-  print "before rcd"
-  print path
-  print "after rcd"
-  print removeConsecutiveDuplicates(path)
-
-
+  contourVerts3D = map(lambda v : uniqueVerts3D[v], path)
+  aliasedInXZPlane = groupXZAliased(contourVerts3D)
+  floorContour = map(lambda vs : (vs[0][0], maximum_y, vs[0][2]), aliasedInXZPlane)
+  ceilingContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
+  a = zip(floorContour, ceilingContour)
+  cyclicPairs = [ (i,(i+1)%len(a)) for i in range(len(a)) ]
+  for (i,j) in cyclicPairs:
+    triangle1 = (a[i][1][1], a[j][0], a[i][0])
+    triangle2 = (a[i][1][1], a[j][1][0], a[j][0]) 
+    if (not zeroArea(triangle1)):
+      print triangle1
+    if (not zeroArea(triangle2)):
+      print triangle2
