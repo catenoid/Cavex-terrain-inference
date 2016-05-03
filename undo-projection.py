@@ -204,6 +204,8 @@ def dealias(path):
 
 edges = attachedEdges
 
+hiddenTerrainPaths = []
+
 for path in unattachedPaths:
   vertsToAdd = dealias(path)
   firstNewVertex = len(verts3D) - 1
@@ -213,6 +215,7 @@ for path in unattachedPaths:
   edgesToAdd = map(connect, pathVertices)
   verts3D += vertsToAdd
   edges += edgesToAdd
+  hiddenTerrainPaths.append(pathVertices)
 
 # Alias vertices that refer to the same 3D coordinate
 # This happens when an unattached edge path meets an attached edge, and the vertex is calculated twice
@@ -240,9 +243,44 @@ newEdges = []
 for (v1,v2) in edges:
   newEdges.append((oldToNewIndex[v1], oldToNewIndex[v2]))
 
+
 print "Vertices:"
-for v in nonDuplicatedVerts3D:
-  print v
+for i in range(len(nonDuplicatedVerts3D)):
+  print i,":",nonDuplicatedVerts3D[i]
 print "Edges:"
 for e in newEdges:
   print e
+
+# TRIANGULATE THIS MESH
+# triangles = [(v1,v2,v3), (v1,v3,v4), ..]
+# where v = (x,y,z)
+# If surfaceNorm points in a negative direction, swap v2 and v3
+# where surfaceNorm = (v3-v2)x(v2-v1) / |(v3-v2)x(v2-v1)|
+# Visible terrain now prime for Unity
+
+# INFER HIDDEN TERRAIN
+# Map birds eye view over each hiddenTerrainPath, remove consecutive duplicates in (x,z) space
+# Subdivide in to white triangles
+# Assign a y value to each triangle based on heighest-to-remain-invisible-to-camera principle
+# Requires each triangular cell in the isometric projection to have a depth value based on the item in the foreground
+birdsEyeView = lambda (x,y,z) : (x,z)
+
+def removeConsecutiveDuplicates(path):
+  noDuplicates = []
+  previous = path[0]
+  barrelShifted = path[1:] + [previous]
+  for v in barrelShifted:
+    if (v != previous):
+      noDuplicates.append(v)
+      previous = v
+  return noDuplicates
+
+print "Paths in hidden terrain"
+for path in hiddenTerrainPaths:
+  path = map(birdsEyeView, map(lambda v : nonDuplicatedVerts3D[oldToNewIndex[v]], path))
+  print "before rcd"
+  print path
+  print "after rcd"
+  print removeConsecutiveDuplicates(path)
+
+
