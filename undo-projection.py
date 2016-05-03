@@ -24,7 +24,7 @@ verts2D = [
 #  (-6,5),
 ]
 
-# Representing connections between points on isometric paper with a vertex pair (indexed into verts2D)
+# Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
 attachedEdges = [
   (0,1),
   (2,3),
@@ -58,6 +58,7 @@ def normalise(x):
   else:
     return x/abs(x)
 
+# Converting a unit change in the isometric coordinate system (as used in verts2D), to an angle direction in degrees
 deltaToAzimuth = {
   (0,1) : 0,
   (1,0) : 60,
@@ -83,7 +84,7 @@ def azimuth(vector2):
   return deltaToAzimuth[(normalise(x), normalise(y))]
 
 # Moving coplanar in 3D space:
-# Conversion between the azimuth (from the isometric paper diagram) and the equivalent (x,y,z) displacement
+# Conversion from the azimuth (from the isometric paper diagram), to the equivalent (x,y,z) displacement
 coplanarXToVector3 = {
   0   : (0,1,0),
   60  : (0,1,1),
@@ -129,7 +130,7 @@ def coplanarDisplacement(delta, colour):
   return scale(unit, scaleFactor)
 
 # Moving along concave/cavex edges in 3D space
-# Conversion between the azimuth (from the isometric paper diagram) and the equivalent (x,y,z) displacement
+# Conversion from the azimuth (from the isometric paper diagram), to the equivalent (x,y,z) displacement
 attachedEdgeToVector3 = {
   0   : (0,1,0),
   60  : (-1,0,0),
@@ -149,12 +150,12 @@ def delta(vertexPair):
   v1,v2 = vertexPair
   return subtract2(verts2D[v2], verts2D[v1])
 
-# The 2D coordinate (0,0) will be anchored to offset in 3D space
+# The 2D coordinate (0,0) will be anchored to 3D coordinate 'offset'
 offset = (0,0,0)
 verts3D = ['undef' for v in verts2D]
 verts3D[0] = offset
-seen = []
 
+seen = []
 def foregroundTraversal(v1):
   seen.append(v1)
   for v2 in adjacentVertices[v1]:
@@ -162,12 +163,10 @@ def foregroundTraversal(v1):
       verts3D[v2] = add3(verts3D[v1], attachedDisplacement(delta((v1,v2))))
       foregroundTraversal(v2)
 
-print "Performing foreground traversal"
 foregroundTraversal(0)
 
-# --- UNDER CONSTRUCTION ---
-# I think the ground plane boundary needs to be treated differently
-# It's colours are interiors, whereas the rest are exterior
+# Dealiasing vertices along unattached edge paths
+# To do: Ground plane. Colours are interiors, whereas those along the unattached path are exterior
 
 unattachedPaths = [ # directed CW, colour on outside
 [ # Back of steps
@@ -194,10 +193,10 @@ def aliasedDeltaPath(path):
     deltas3D.append(coplanarDisplacement(delta(vertexPair), colour))
   return deltas3D
 
-def dealias(pathDeltas, startingVertex):
+def dealias(path):
   dealiasedVerts = []
-  v = startingVertex
-  for dv in pathDeltas:
+  v = verts3D[path[0][0][0]] # AAAAHHH
+  for dv in aliasedDeltaPath(path):
     nextVertex = add3(v,dv)
     dealiasedVerts.append(nextVertex)
     v = nextVertex
@@ -205,10 +204,8 @@ def dealias(pathDeltas, startingVertex):
 
 edges = attachedEdges
 
-# Start the path at vertex 'b' where path goes [..(a,b), (b,a)..] possibly cyclically
 for path in unattachedPaths:
-  v1 = verts3D[path[0][0][0]]
-  vertsToAdd = dealias(aliasedDeltaPath(path), v1)
+  vertsToAdd = dealias(path)
   firstNewVertex = len(verts3D) - 1
   lastNewVertex = firstNewVertex + len(vertsToAdd)
   pathVertices = range(firstNewVertex, lastNewVertex)
@@ -217,18 +214,9 @@ for path in unattachedPaths:
   verts3D += vertsToAdd
   edges += edgesToAdd
 
-# To do: Add the ground plane
-
-print "Found: "
-for i in range(len(verts3D)):
-  print i, ": ", verts3D[i]
-print "With edges:"
-for i in range(len(edges)):
-  print i, ": ", edges[i]
-
-# ---UNDER CONSTRUCTION---
-print "Removing duplicated vertices"
-duplicates = {} # 3D coordinate : [ vertices that refer to that coordinate]
+# Alias vertices that refer to the same 3D coordinate
+# This happens when an unattached edge path meets an attached edge, and the vertex is calculated twice
+duplicates = {} # { (x,y,z) : [ vertices that refer to that coordinate] }
 
 for oldIndex in range(len(verts3D)):
   v = verts3D[oldIndex]
@@ -240,18 +228,21 @@ for oldIndex in range(len(verts3D)):
 
 nonDuplicatedVerts3D = duplicates.keys()
 
-# It's all so UGLY :(
-
-print "Final (?) vertex values"
+# Renumber the edges to according to nonDuplicatedVerts3D
 oldToNewIndex = ['undef' for v in verts3D]
 for newIndex in range(len(nonDuplicatedVerts3D)):
   v = nonDuplicatedVerts3D[newIndex]
-  print "Vertex ",newIndex," : ",v
   oldIndices = duplicates[v]
   for i in oldIndices:
     oldToNewIndex[i] = newIndex
 
-print "New edges:"
+newEdges = []
 for (v1,v2) in edges:
-  print (oldToNewIndex[v1], oldToNewIndex[v2])
+  newEdges.append((oldToNewIndex[v1], oldToNewIndex[v2]))
 
+print "Vertices:"
+for v in nonDuplicatedVerts3D:
+  print v
+print "Edges:"
+for e in newEdges:
+  print e
