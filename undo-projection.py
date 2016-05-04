@@ -140,7 +140,7 @@ attachedEdgeToVector3 = {
   300 : (0,0,-1)
 }
 
-def attachedDisplacement(delta):
+def orthogonalDisplacement(delta):
   scaleFactor = length(delta)
   axisAngle = azimuth(delta)
   unit = attachedEdgeToVector3[axisAngle]
@@ -160,7 +160,7 @@ def foregroundTraversal(v1):
   seen.append(v1)
   for v2 in adjacentVertices[v1]:
     if (v2 not in seen):
-      verts3D[v2] = add3(verts3D[v1], attachedDisplacement(delta((v1,v2))))
+      verts3D[v2] = add3(verts3D[v1], orthogonalDisplacement(delta((v1,v2))))
       foregroundTraversal(v2)
 
 foregroundTraversal(0)
@@ -239,10 +239,7 @@ for newIndex in range(len(uniqueVerts3D)):
   for i in oldIndices:
     oldToNewIndex[i] = newIndex
 
-newEdges = []
-for (v1,v2) in edges:
-  newEdges.append((oldToNewIndex[v1], oldToNewIndex[v2]))
-
+newEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in edges ]
 hiddenTerrainPaths = map(lambda path : map(lambda v : oldToNewIndex[v], path), unattachedEdgeLoops)
 
 print "Vertices:"
@@ -252,12 +249,14 @@ print "Edges:"
 for e in newEdges:
   print e
 
-# TRIANGULATE THIS MESH
+# TRIANGULATE THE VISIBLE MESH
 # Can triangule while in 2d, then convert
 # triangles = list of vertex triples
 # If surfaceNorm points in a negative direction, swap v2 and v3
 # where surfaceNorm = (v3-v2)x(v2-v1) / |(v3-v2)x(v2-v1)|
 # Visible terrain now prime for Unity
+
+# Ear clipping
 
 # INFER HIDDEN TERRAIN
 def birdsEyeView((x,y,z)):
@@ -282,14 +281,12 @@ def zeroArea(triangle):
   v1,v2,v3 = triangle
   return v1 == v2 or v2 == v3 or v1 == v3
 
-# For now, set the y value to be the minimum y encountered in verts3D
-# Eventually: Assign a y-value to each white plane segment based on heighest-to-remain-invisible-to-camera principle
-maximum_y = 0
-
 print "Triangles to join the hidden white shards to the visible mesh"
 for path in hiddenTerrainPaths:
-  contourVerts3D = map(lambda v : uniqueVerts3D[v], path)
-  aliasedInXZPlane = groupXZAliased(contourVerts3D)
+  contour = map(lambda v : uniqueVerts3D[v], path)
+  maximum_y = min(map(lambda (x,y,z) : y, contour)) # Where the floor is above it will be max(...)
+  print "The floor is coplanar with Y=", maximum_y
+  aliasedInXZPlane = groupXZAliased(contour)
   floorContour = map(lambda vs : (vs[0][0], maximum_y, vs[0][2]), aliasedInXZPlane)
   ceilingContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
   a = zip(floorContour, ceilingContour)
@@ -301,3 +298,4 @@ for path in hiddenTerrainPaths:
       print triangle1
     if (not zeroArea(triangle2)):
       print triangle2
+  # Triangulate floorContour (That becomes part of the hidden mesh)
