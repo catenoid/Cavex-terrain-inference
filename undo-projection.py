@@ -2,9 +2,6 @@
 # Orient the paper with one set of graticules vertically upright
 # (Terminology: azimuth = degrees clockwise from "north," in this case, towards the top of the page)
 
-# To introduce the ground plane, we trace the bounding shape. It's a plane with a cut so there are no holes
-# Coplanar traversal of white, but goes the other way to the hidden terrain paths because the colour is on the inside
-
 # Representing 2D coordinates:
 # +Primary axis: azimuth = 60
 # +Secondary axis: azimuth = 0
@@ -21,8 +18,8 @@ verts2D = [
   (0,4),
   (-2,3),
   (-3,3),
-#  (0,-1),
-#  (6,-1),
+#  (0,-1),  # Bounding vertices of the ground plane
+#  (6,-1),  # Requires some thought
 #  (0,5),
 #  (-6,5),
 ]
@@ -191,10 +188,7 @@ unattachedPaths = [ # directed CW, colour on outside
 ]
 
 def aliasedDeltaPath(path):
-  deltas3D = []
-  for (vertexPair, colour) in path:
-    deltas3D.append(coplanarDisplacement(delta(vertexPair), colour))
-  return deltas3D
+  return [coplanarDisplacement(delta(vertexPair), colour) for (vertexPair, colour) in path]
 
 def dealias(path):
   dealiasedVerts = []
@@ -206,19 +200,17 @@ def dealias(path):
   return dealiasedVerts
 
 edges = attachedEdges
-
-unattachedEdgeLoops = []
+vertexLoops = []
 
 for path in unattachedPaths:
   vertsToAdd = dealias(path)
   firstNewVertex = len(verts3D) - 1
   lastNewVertex = firstNewVertex + len(vertsToAdd)
   pathVertices = range(firstNewVertex, lastNewVertex)
-  connect = lambda i : (i,i+1)
-  edgesToAdd = map(connect, pathVertices)
+  edgesToAdd = [ (i,i+1) for i in pathVertices ]
   verts3D += vertsToAdd
   edges += edgesToAdd
-  unattachedEdgeLoops.append(pathVertices)
+  vertexLoops.append(pathVertices)
 
 # Alias vertices that refer to the same 3D coordinate
 # This happens when an unattached edge path meets an attached edge, and the vertex is calculated twice
@@ -243,7 +235,7 @@ for newIndex in range(len(uniqueVerts3D)):
     oldToNewIndex[i] = newIndex
 
 newEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in edges ]
-hiddenTerrainPaths = map(lambda path : map(lambda v : oldToNewIndex[v], path), unattachedEdgeLoops)
+hiddenTerrainContours = map(lambda loop : map(lambda v : oldToNewIndex[v], loop), vertexLoops)
 
 print "Vertices:"
 for i in range(len(uniqueVerts3D)):
@@ -285,41 +277,72 @@ def zeroArea(triangle):
   return v1 == v2 or v2 == v3 or v1 == v3
 
 print "Triangles to join the hidden white shards to the visible mesh"
-wallTriangles = []
-floorTriangles = []
 
-# A "wall" of rectangles joins the hidden floor to the visible mesh
-# A rectangular wall segment is composed of two identical right triangles
-# j = (i+1) % len(aliasedVerts3D) but (+) can't go in a variable name
-def wallTriangulation(aliasedVerts3D, i, j):
-  floor_i, (ceiling_first_i, ceiling_last_i) = aliasedVerts3D[i]
-  floor_j, (ceiling_first_j, ceiling_last_j) = aliasedVerts3D[j]
-  triangle1 = (ceiling_last_i, floor_j,         floor_i)
-  triangle2 = (ceiling_last_i, ceiling_first_j, floor_j)
-  return filter(lambda t : not zeroArea(t), [triangle1, triangle2])
-
-# Choose the correct one. I'm not sure how at present, but it matters
 def floorHeight(contour):
   return min(map(lambda (x,y,z) : y, contour))
 
 def ceilingHeight(contour):
   return max(map(lambda (x,y,z) : y, contour))
 
+# A "wall" of rectangles joins the hidden floor/ceiling to the visible mesh
+# A rectangular wall segment is composed of two identical right triangles
+# j = (i+1) % len(aliasedVerts3D), but (+) can't go in a variable name
 def wallSegmentBounds(contour, y):
   aliasedInXZPlane = groupXZAliased(contour)
-  floorContour = map(lambda vs : (vs[0][0], y, vs[0][2]), aliasedInXZPlane)
-  ceilingContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
-  return zip(floorContour, ceilingContour)
+  flatContour = map(lambda vs : (vs[0][0], y, vs[0][2]), aliasedInXZPlane)
+  jaggedContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
+  return zip(flatContour, jaggedContour)
 
-for path in hiddenTerrainPaths:
-  contour = map(lambda v : uniqueVerts3D[v], path)
-  y = floorHeight(contour)
-  print "The floor is coplanar with Y =", y
+def connectToFloor(left_side, right_side):
+  flat_L, (jagged_first_L, jagged_last_L) = left_side
+  flat_R, (jagged_first_R, jagged_last_R) = right_side
+  triangle1 = (jagged_last_L, flat_R,         flat_L)
+  triangle2 = (jagged_last_L, jagged_first_R, flat_R)
+  return filter(lambda t : not zeroArea(t), [triangle1, triangle2])
+
+def connectToCeiling(left_side, right_side):
+  flat_L, (jagged_first_L, jagged_last_L) = left_side
+  flat_R, (jagged_first_R, jagged_last_R) = right_side
+  triangle1 = (flat_L, jagged_first_R, jagged_last_L)
+  triangle2 = (flat_L, flat_R,         jagged_first_R)
+  return filter(lambda t : not zeroArea(t), [triangle1, triangle2])
+
+def triangulateWall(contour, y, triangulate):
+  wallTriangles = []
   a = wallSegmentBounds(contour, y)
   cyclicPairs = [ (i,(i+1)%len(a)) for i in range(len(a)) ]
   for (i,j) in cyclicPairs:
-    wallTriangles += wallTriangulation(a, i, j)
+    wallTriangles += triangulate(a[i], a[j])
+  return wallTriangles
+
+def addHiddenFloor(contour):
+  return triangulateWall(contour, floorHeight(contour), lambda t1, t2 : connectToFloor(t1,t2))
+
+def addHiddenCeiling(contour):
+  return triangulateWall(contour, ceilingHeight(contour), lambda t1, t2 : connectToCeiling(t1,t2))
+
+#def addHiddenFloor(contour):
+#  wallTriangles = []
+#  y = floorHeight(contour)
+#  a = wallSegmentBounds(contour, y)
+#  cyclicPairs = [ (i,(i+1)%len(a)) for i in range(len(a)) ]
+#  for (i,j) in cyclicPairs:
+#    wallTriangles += connectToFloor(a[i], a[j])
+#  return wallTriangles
+#
+#def addHiddenCeiling(contour):
+#  wallTriangles = []
+#  y = ceilingHeight(contour)
+#  a = wallSegmentBounds(contour, y)
+#  cyclicPairs = [ (i,(i+1)%len(a)) for i in range(len(a)) ]
+#  for (i,j) in cyclicPairs:
+#    wallTriangles += connectToCeiling(a[i], a[j])
+#  return wallTriangles
+
+for contour in hiddenTerrainContours:
+  contourVerts3D = map(lambda v : uniqueVerts3D[v], contour)
+  tri = addHiddenFloor(contourVerts3D)
+  for t in tri:
+    print t 
   # Triangulate floorContour (That becomes part of the hidden mesh)
 
-for t in wallTriangles:
-  print t
