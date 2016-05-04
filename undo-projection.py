@@ -2,6 +2,9 @@
 # Orient the paper with one set of graticules vertically upright
 # (Terminology: azimuth = degrees clockwise from "north," in this case, towards the top of the page)
 
+# To introduce the ground plane, we trace the bounding shape. It's a plane with a cut so there are no holes
+# Coplanar traversal of white, but goes the other way to the hidden terrain paths because the colour is on the inside
+
 # Representing 2D coordinates:
 # +Primary axis: azimuth = 60
 # +Secondary axis: azimuth = 0
@@ -282,20 +285,41 @@ def zeroArea(triangle):
   return v1 == v2 or v2 == v3 or v1 == v3
 
 print "Triangles to join the hidden white shards to the visible mesh"
+wallTriangles = []
+floorTriangles = []
+
+# A "wall" of rectangles joins the hidden floor to the visible mesh
+# A rectangular wall segment is composed of two identical right triangles
+# j = (i+1) % len(aliasedVerts3D) but (+) can't go in a variable name
+def wallTriangulation(aliasedVerts3D, i, j):
+  floor_i, (ceiling_first_i, ceiling_last_i) = aliasedVerts3D[i]
+  floor_j, (ceiling_first_j, ceiling_last_j) = aliasedVerts3D[j]
+  triangle1 = (ceiling_last_i, floor_j,         floor_i)
+  triangle2 = (ceiling_last_i, ceiling_first_j, floor_j)
+  return filter(lambda t : not zeroArea(t), [triangle1, triangle2])
+
+# Choose the correct one. I'm not sure how at present, but it matters
+def floorHeight(contour):
+  return min(map(lambda (x,y,z) : y, contour))
+
+def ceilingHeight(contour):
+  return max(map(lambda (x,y,z) : y, contour))
+
+def wallSegmentBounds(contour, y):
+  aliasedInXZPlane = groupXZAliased(contour)
+  floorContour = map(lambda vs : (vs[0][0], y, vs[0][2]), aliasedInXZPlane)
+  ceilingContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
+  return zip(floorContour, ceilingContour)
+
 for path in hiddenTerrainPaths:
   contour = map(lambda v : uniqueVerts3D[v], path)
-  maximum_y = min(map(lambda (x,y,z) : y, contour)) # Where the floor is above it will be max(...)
-  print "The floor is coplanar with Y=", maximum_y
-  aliasedInXZPlane = groupXZAliased(contour)
-  floorContour = map(lambda vs : (vs[0][0], maximum_y, vs[0][2]), aliasedInXZPlane)
-  ceilingContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
-  a = zip(floorContour, ceilingContour)
+  y = floorHeight(contour)
+  print "The floor is coplanar with Y =", y
+  a = wallSegmentBounds(contour, y)
   cyclicPairs = [ (i,(i+1)%len(a)) for i in range(len(a)) ]
   for (i,j) in cyclicPairs:
-    triangle1 = (a[i][1][1], a[j][0], a[i][0])
-    triangle2 = (a[i][1][1], a[j][1][0], a[j][0]) 
-    if (not zeroArea(triangle1)):
-      print triangle1
-    if (not zeroArea(triangle2)):
-      print triangle2
+    wallTriangles += wallTriangulation(a, i, j)
   # Triangulate floorContour (That becomes part of the hidden mesh)
+
+for t in wallTriangles:
+  print t
