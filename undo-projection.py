@@ -321,24 +321,6 @@ def addHiddenFloor(contour):
 def addHiddenCeiling(contour):
   return triangulateWall(contour, ceilingHeight(contour), lambda t1, t2 : connectToCeiling(t1,t2))
 
-#def addHiddenFloor(contour):
-#  wallTriangles = []
-#  y = floorHeight(contour)
-#  a = wallSegmentBounds(contour, y)
-#  cyclicPairs = [ (i,(i+1)%len(a)) for i in range(len(a)) ]
-#  for (i,j) in cyclicPairs:
-#    wallTriangles += connectToFloor(a[i], a[j])
-#  return wallTriangles
-#
-#def addHiddenCeiling(contour):
-#  wallTriangles = []
-#  y = ceilingHeight(contour)
-#  a = wallSegmentBounds(contour, y)
-#  cyclicPairs = [ (i,(i+1)%len(a)) for i in range(len(a)) ]
-#  for (i,j) in cyclicPairs:
-#    wallTriangles += connectToCeiling(a[i], a[j])
-#  return wallTriangles
-
 for contour in hiddenTerrainContours:
   contourVerts3D = map(lambda v : uniqueVerts3D[v], contour)
   tri = addHiddenFloor(contourVerts3D)
