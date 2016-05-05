@@ -169,6 +169,8 @@ foregroundTraversal(0)
 # To do: Ground plane. Colours are interiors, whereas those along the unattached path are exterior
 
 unattachedPaths = [ # directed CW, colour on outside
+# Update: When segmenting into polygons, I assume hidden edges are directed CCW
+#         Reworking required
 [ # Back of steps
   ((11,10), 'w'),
   ((10,8), 'w'),
@@ -245,13 +247,54 @@ for e in newEdges:
   print e
 
 # TRIANGULATE THE VISIBLE MESH
-# Can triangule while in 2d, then convert
-# triangles = list of vertex triples
-# If surfaceNorm points in a negative direction, swap v2 and v3
-# where surfaceNorm = (v3-v2)x(v2-v1) / |(v3-v2)x(v2-v1)|
-# Visible terrain now prime for Unity
 
-# Ear clipping
+# OPTION 1
+# Separate into simple polygons
+#   Convert to directed edges: attached edges bidirectional, hidden paths directed counterclockwise
+#   Only follow edges on the same face, recording the constant X, Y or Z value
+#   Once the loop has come full circle, remove those edges and call recursively
+# Pass the polygon coordinates to the triangulator
+# Reinsert the constant axis value into the 2D triangle coordinates
+
+def normalisedCrossProduct(edge1, edge2):
+  pass
+
+def separateIntoPolygons():
+  reverseEdge = lambda (v1,v2) : (v2,v1)
+  # Oh dear, look at all these global variables!
+  directedEdges = attachedEdges + map(reverseEdge, attachedEdges) + unattachedEdges
+  edgesFollowing = [ [filter(lambda (v1,v2) : v1 == v_end, directedEdges)] for (v_start,v_end) in directedEdges ]
+
+  def completeFace(e1,e2):
+    face = [e1,e2]
+    faceNormal = normalisedCrossProduct(e1,e2) # need to get the actual vertex coords from directedEdges[e1][0,1][0,1,2]
+    isCoplanar = lambda e2, e3 : normalisedCrossProduct(e2, e3)) == faceNormal
+  
+    def addNextCoplanarEdge(e1,e2):
+      e3 = filter(isCoplanar, edgesFollowing[e2])[0] # is python's filter lazy?
+      if (e3 not in face):
+        face.append(e3)
+        addNextCoplanarEdge(e2,e3)
+  
+    addNextCoplanarEdge(e1,e2)
+    return face
+
+  polygons = []
+  def clipFace(edges):
+    e1 = edges[0]
+    e2 = edgesFollowing[e1][0]
+    polygon = completeFace(e1, e2)
+    polygons.append(polygon)
+    clipFace(filter(lambda e : e not in polygon, edges))
+
+  clipFace(range(len(directEdges)))
+  return polygons
+
+# OPTION 2
+# Triangulate the mesh in-situ.
+# How will you know which verts to test to see if they intersect? All of them?
+# When removing a triangle: remove edges (v1,v2), (v2,v3) and add edge (v1,v3)
+# Orient all triangles clockwise
 
 # INFER HIDDEN TERRAIN
 def birdsEyeView((x,y,z)):
@@ -327,4 +370,4 @@ for contour in hiddenTerrainContours:
   for t in tri:
     print t 
   # Triangulate floorContour (That becomes part of the hidden mesh)
-
+# Whether or not we add a floor or ceiling depends on which side is in the foreground
