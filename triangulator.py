@@ -6,11 +6,14 @@
 # 2. "Cut off" the ear from the polygon and store it
 # 3. Go to 1
 
+# Cartesian coordinates of "hourglass" polygon
 sample = [
+  (0,1),
   (1,2),
-  (2,1),
-  (1,0),
-  (0,1)
+  (0,3),
+  (3,3),
+  (2,2),
+  (3,1),
 ]
 
 def equalWithinTolerance(a, b, epsilon=0.00001):
@@ -33,7 +36,8 @@ def getEarOfVertex(polygonCoords, i):
   return (polygonCoords[i-1], polygonCoords[i], polygonCoords[(i+1)%len(polygonCoords)])
 
 def isConcave(triangle):
-  # True if the triangle orients with polygon, and visible polygons orient clockwise in Unity (...I think)
+  # True if vertex triangle[1] is concave. So returns True if the triangle orients AGAINST the polygon
+  # Visible polygons orient clockwise about their normal vector in Unity (I think... TBC)
   # Check the sign of the cross product of (v2-v1) with (v3-v2)
   (v1_x, v1_y), (v2_x, v2_y), (v3_x, v3_y) = triangle
   d1_x, d1_y = v2_x - v1_x, v2_y - v1_y
@@ -48,16 +52,16 @@ def barrelShift(coords):
 
 def noOtherVertexInFirstEar(coords):
   firstEar = getEarOfVertex(coords, 0)
-  # I don't like that we get the firstEar AGAIN here
-  # But the range coords[2:-1] assumes we are testing against the firstEar
-  #   so it doesn't make sense to include firstEar as a parameter to this function
   for i in range(len(coords[2:-1])):
     vertexTriangle = getEarOfVertex(coords, i)
     if (isConcave(vertexTriangle) and isInTriangle(coords[i], firstEar)):
       return False
   return True
+  # I don't like that we get the firstEar again in this function, when the same operations was just performed in it's calling scope.
+  # But the range coords[2:-1] assumes we are testing all other vertices against the firstEar
+  #   so it doesn't make sense to include firstEar as a parameter
 
-def triangulate(polygonCoords):  # [(x,y)]
+def triangulate_v1(polygonCoords):  # [(x,y)]
   triangulated = []              # [((x,y), (x,y), (x,y))]
 
   def clipEar(coords):
@@ -74,7 +78,6 @@ def triangulate(polygonCoords):  # [(x,y)]
 
 def triangulate_v2(coords):
   triangulated = []              # [((x,y), (x,y), (x,y))]
-  
   while (len(coords) >= 3):
     firstEar = getEarOfVertex(coords, 0)
     if (not isConcave(firstEar) and noOtherVertexInFirstEar(coords)):
@@ -82,10 +85,27 @@ def triangulate_v2(coords):
       coords = removeFirstEar(coords)
     else:
       coords = barrelShift(coords)
+  return triangulated
 
+def triangulate_v3(coords):
+  triangulated = []              # [((x,y), (x,y), (x,y))]
+
+  def clipEar():
+    if (len(coords) >= 3):
+      firstEar = getEarOfVertex(coords, 0)
+      if (not isConcave(firstEar) and noOtherVertexInFirstEar(coords)):
+        triangulated.append(firstEar)
+        coords = removeFirstEar(coords)
+      else:
+        coords = barrelShift(coords)
+      clipEar()
+
+  clipEar()
   return triangulated
 
 print "Triangulator v1 result:"
-print triangulate(sample)
+print triangulate_v1(sample)
 print "Triangulator v2 result:"
 print triangulate_v2(sample)
+print "Triangulator v3 result:"
+print triangulate_v3(sample)
