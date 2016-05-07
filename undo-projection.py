@@ -21,14 +21,13 @@ verts2D = [
   (0,4),
   (-2,3),
   (-3,3),
-#  (0,-1),  # Bounding vertices of the ground plane
-#  (6,-1),  # Requires some thought
-#  (0,5),
-#  (-6,5),
+  (0,-1),  # Bounding vertices of the ground plane
+  (-6,5),
+  (0,5),
+  (6,-1),
 ]
 
-# Make a cut in the ground plane from (0,0) to (0,-1)
-# Ground becomes a closed polygon which goes CW around the edge of the map (leftwards across the unattached vertex path)
+# Make a cut in the ground plane from (0,0) to (0,-1) to make it a polygon oriented clockwise, without holes
 
 # Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
 attachedEdges = [
@@ -44,9 +43,7 @@ attachedEdges = [
 ]
 
 unattachedPaths = [ 
-# The foreground path will be to the right v11 to v1 (to follow the directed edges of the faces)
-# The background path (white, white, white etc.) goes the other way (leftwards, v1 to v11)
-# So the contour goes... CCW from above?
+# A contour aliased to an acyclic graph goes counter-clockwise from above
 # So the colour paired with a directed edge is the colour on the outside of the contour
 [ # Back of steps
   ((11,10), 'g'),
@@ -63,6 +60,14 @@ unattachedPaths = [
   ((9,8), 'w'),
   ((8,10), 'w'),
   ((10,11), 'w'),
+],
+[ # Ground
+  ((0,12), 'w'),
+  ((12,13), 'w'),
+  ((13,14), 'w'),
+  ((14,15), 'w'),
+  ((15,12), 'w'),
+  ((12,0), 'w'),
 ]
 ]
 
@@ -195,15 +200,13 @@ def foregroundTraversal(v1):
 foregroundTraversal(0)
 
 # Dealiasing vertices along unattached edge paths
-# To do: Ground plane. Colours are interiors, whereas those along the unattached path are exterior
-
-def aliasedDeltaPath(path):
+def coplanarDisplacements3D(path):
   return [coplanarDisplacement(delta(vertexPair), colour) for (vertexPair, colour) in path]
 
 def dealias(path):
   dealiasedVerts = []
-  v = verts3D[path[0][0][0]] # AAAAHHH
-  for dv in aliasedDeltaPath(path):
+  v = verts3D[path[0][0][0]] # The first vertex in the path must have been met in fg traversal, so the delta path can be anchored
+  for dv in coplanarDisplacements3D(path):
     nextVertex = add3(v,dv)
     dealiasedVerts.append(nextVertex)
     v = nextVertex
@@ -214,16 +217,18 @@ vertexLoops = []
 
 for path in unattachedPaths:
   vertsToAdd = dealias(path)
-  firstNewVertex = len(verts3D) - 1
+  firstNewVertex = len(verts3D)
   lastNewVertex = firstNewVertex + len(vertsToAdd)
-  pathVertices = range(firstNewVertex, lastNewVertex)
+  pathVertices = range(firstNewVertex, lastNewVertex-1)
   edgesToAdd = [ (i,i+1) for i in pathVertices ]
   verts3D += vertsToAdd
   unattachedEdges += edgesToAdd
   vertexLoops.append(pathVertices)
 
 # Alias vertices that refer to the same 3D coordinate
-# This happens when an unattached edge path meets an attached edge, and the vertex is calculated twice
+# This happens:
+#   (1) When an unattached edge path meets an attached edge, and the intersecting vertex 3D coordinate is calculated twice
+#   (2) At the starting vertex of an unattached path, when the contour wraps upon itself
 duplicates = {} # { (x,y,z) : [ vertices that refer to that coordinate] }
 
 for oldIndex in range(len(verts3D)):
@@ -237,6 +242,7 @@ for oldIndex in range(len(verts3D)):
 uniqueVerts3D = duplicates.keys()
 
 # Renumber the edges to according to uniqueVerts3D
+# For an entry in oldToNewIndex to be 'undef', the vertex was not encountered in the foreground traversal
 oldToNewIndex = ['undef' for v in verts3D]
 for newIndex in range(len(uniqueVerts3D)):
   v = uniqueVerts3D[newIndex]
@@ -248,13 +254,14 @@ renumberedAttachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) i
 renumberedUnattachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in unattachedEdges ]
 hiddenTerrainContours = map(lambda loop : map(lambda v : oldToNewIndex[v], loop), vertexLoops)
 
+print "Visible mesh:"
 print "Vertices:"
 for i in range(len(uniqueVerts3D)):
   print i,":",uniqueVerts3D[i]
-print "\nattached edges:"
+print "\nAttached edges:"
 for e in renumberedAttachedEdges:
   print e
-print "\nunattached edges"
+print "\nUnattached edges"
 for e in renumberedUnattachedEdges:
   print e
 
@@ -266,7 +273,7 @@ for e in renumberedUnattachedEdges:
 
 directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
 print "directed edges", directedEdges
-simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
+#simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
 # for polygon in simplePolygons:
 #   constantAxisCoordinate = ###
 #   vertexTriples2D = triangulator.triangulate_v1(removeConstantAxis(polygon))
