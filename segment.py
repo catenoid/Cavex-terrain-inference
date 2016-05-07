@@ -49,8 +49,8 @@ def subtract3(v1,v2):
   x2,y2,z2 = v2
   return (x1-x2, y1-y2, z1-z2)
 
-def signedUnit(n):
-  return n/abs(n) if (n != 0) else 0
+def unit(n):
+  return n/n if (n != 0) else 0
 
 def normalisedCrossProduct(delta1, delta2):
   d1_x, d1_y, d1_z = delta1
@@ -58,56 +58,57 @@ def normalisedCrossProduct(delta1, delta2):
   x = d1_y * d2_z - d1_z * d2_y
   y = d1_z * d2_x - d1_x * d2_z
   z = d1_x * d2_y - d1_y * d2_x
-  return (signedUnit(x), signedUnit(y), signedUnit(z))
+  return (unit(x), unit(y), unit(z))
+
+def isReversedEdge(e1,e2):
+  v1,v2 = e1
+  v3,v4 = e2
+  return (v1 == v4) and (v2 == v3)
 
 def separateIntoPolygons(verts3D, directedEdges):
-  edgeIndices = range(len(directedEdges))
-  def doesEdgeFollow(i):
-    v_start, v_end = directedEdges[i]
-    return (lambda j : directedEdges[j][0] == v_end)
-  edgesFollowing = [ filter(doesEdgeFollow(i), edgeIndices) for i in edgeIndices ]
-  print "edgesFollowing",edgesFollowing
+  def doesEdgeFollow(edge):
+    v_start, v_end = edge
+    return (lambda nextEdge : nextEdge[0] == v_end)
+
+  edgesFollowing = {}
+  for edge in directedEdges:
+    edgesFollowing[edge] = filter(doesEdgeFollow(edge), directedEdges) 
 
   def normalTo(e1,e2):
-    v1,v2 = directedEdges[e1]
-    v3 = directedEdges[e2][1]
+    v1,v2 = e1
+    v3 = e2[1]
     d1 = subtract3(verts3D[v2], verts3D[v1]) 
     d2 = subtract3(verts3D[v3], verts3D[v2]) 
     return normalisedCrossProduct(d2,d1)
 
   def completeFace(e1,e2):
-    print "complete face e1",e1,"e2",e2
     face = [e1,e2]
     faceNormal = normalTo(e1,e2)
-    print "face normal", faceNormal
+
     def addNextCoplanarEdge(edge):
-      faceContinues = False
+      foundNextEdge = False
+      nextEdge = (0,0)
       for e in edgesFollowing[edge]:
-        if (not faceContinues):
-          if (normalTo(e,edge) == faceNormal and e not in face):
-            faceContinues = True
-      if (faceContinues):
-        print "next edge is",e
-        face.append(e)
-        addNextCoplanarEdge(e)
+        if (not foundNextEdge and (normalTo(edge,e) == faceNormal) and (e not in face) and (not isReversedEdge(e,edge))):
+          foundNextEdge = True
+          nextEdge = e
+      if (foundNextEdge):
+        face.append(nextEdge)
+        addNextCoplanarEdge(nextEdge)
 
     addNextCoplanarEdge(e2)
     return face
 
   polygons = []
-
   def clipFace(es):
     if (len(es) >= 3):
-      print "clipface with list",es
       e1 = es[0]
-      e2 = edgesFollowing[e1][0]
+      e2 = filter(lambda e2 : not isReversedEdge(e1,e2), edgesFollowing[e1])[0] # is Python's filter lazy? Can this list be empty?
       polygon = completeFace(e1, e2)
-      print "polygon is",polygon
       polygons.append(polygon)
       clipFace(filter(lambda edge : edge not in polygon, es))
 
-  clipFace(edgeIndices)
+  clipFace(directedEdges)
   return polygons
 
-print "Result:"
 print separateIntoPolygons(sampleVerts3D, sampleDirectedEdges)
