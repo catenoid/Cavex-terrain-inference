@@ -27,6 +27,9 @@ verts2D = [
 #  (-6,5),
 ]
 
+# Make a cut in the ground plane from (0,0) to (0,-1)
+# Ground becomes a closed polygon which goes CW around the edge of the map (leftwards across the unattached vertex path)
+
 # Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
 attachedEdges = [
   (0,1),
@@ -38,6 +41,29 @@ attachedEdges = [
   (4,7),
   (7,8),
   (0,11),
+]
+
+unattachedPaths = [ 
+# The foreground path will be to the right v11 to v1 (to follow the directed edges of the faces)
+# The background path (white, white, white etc.) goes the other way (leftwards, v1 to v11)
+# So the contour goes... CCW from above?
+# So the colour paired with a directed edge is the colour on the outside of the contour
+[ # Back of steps
+  ((11,10), 'g'),
+  ((10,8), 'g'),
+  ((8,9), 'w'),
+  ((9,6), 'w'),
+  ((6,5), 'b'),
+  ((5,2), 'w'),
+  ((2,1), 'b'),
+  ((1,2), 'w'),
+  ((2,5), 'w'),
+  ((5,6), 'w'),
+  ((6,9), 'w'),
+  ((9,8), 'w'),
+  ((8,10), 'w'),
+  ((10,11), 'w'),
+]
 ]
 
 adjacentVertices = [[] for v in verts2D]
@@ -171,27 +197,6 @@ foregroundTraversal(0)
 # Dealiasing vertices along unattached edge paths
 # To do: Ground plane. Colours are interiors, whereas those along the unattached path are exterior
 
-unattachedPaths = [ # directed CW, colour on outside
-# Update: When segmenting into polygons, I assume hidden edges are directed CCW
-#         Reworking required
-[ # Back of steps
-  ((11,10), 'w'),
-  ((10,8), 'w'),
-  ((8,9), 'w'),
-  ((9,6), 'w'),
-  ((6,5), 'w'),
-  ((5,2), 'w'),
-  ((2,1), 'w'),
-  ((1,2), 'b'),
-  ((2,5), 'w'),
-  ((5,6), 'b'),
-  ((6,9), 'w'),
-  ((9,8), 'w'),
-  ((8,10), 'g'),
-  ((10,11), 'g')
-]
-]
-
 def aliasedDeltaPath(path):
   return [coplanarDisplacement(delta(vertexPair), colour) for (vertexPair, colour) in path]
 
@@ -204,7 +209,7 @@ def dealias(path):
     v = nextVertex
   return dealiasedVerts
 
-edges = attachedEdges
+unattachedEdges = []
 vertexLoops = []
 
 for path in unattachedPaths:
@@ -214,7 +219,7 @@ for path in unattachedPaths:
   pathVertices = range(firstNewVertex, lastNewVertex)
   edgesToAdd = [ (i,i+1) for i in pathVertices ]
   verts3D += vertsToAdd
-  edges += edgesToAdd
+  unattachedEdges += edgesToAdd
   vertexLoops.append(pathVertices)
 
 # Alias vertices that refer to the same 3D coordinate
@@ -239,26 +244,31 @@ for newIndex in range(len(uniqueVerts3D)):
   for i in oldIndices:
     oldToNewIndex[i] = newIndex
 
-newEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in edges ]
+renumberedAttachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in attachedEdges ]
+renumberedUnattachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in unattachedEdges ]
 hiddenTerrainContours = map(lambda loop : map(lambda v : oldToNewIndex[v], loop), vertexLoops)
 
 print "Vertices:"
 for i in range(len(uniqueVerts3D)):
   print i,":",uniqueVerts3D[i]
-print "Edges:"
-for e in newEdges:
+print "\nattached edges:"
+for e in renumberedAttachedEdges:
+  print e
+print "\nunattached edges"
+for e in renumberedUnattachedEdges:
   print e
 
 # TRIANGULATE THE VISIBLE MESH
-# Convert to directed edges: attached edges bidirectional, hidden paths directed counterclockwise
+# Convert to directed edges: attached edges bidirectional. Faces clockwise, so hidden paths counterclockwise
 # Separate into simple polygons
 #   "Factor-out" the constant co-ordinate and pass the list of 2D coordinates to triangulate
 #   "Re-distribute" the constant co-ordinate
 
-directedEdges = ## double count attached edges, add hidden paths w/o colour
-simplePolygons = segment.separateIntoPolygons(verts3D, directedEdges)
-for polygon in simplePolygons:
-  constantAxisCoordinate = ###
-  vertexTriples2D = triangulator.triangulate_v1(removeConstantAxis(polygon))
-  my_triangles = redistribute(constantAxisCoordinate, vertexTriples2D)
+directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
+print "directed edges", directedEdges
+simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
+# for polygon in simplePolygons:
+#   constantAxisCoordinate = ###
+#   vertexTriples2D = triangulator.triangulate_v1(removeConstantAxis(polygon))
+#   my_triangles = redistribute(constantAxisCoordinate, vertexTriples2D)
 
