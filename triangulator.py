@@ -87,25 +87,18 @@ def triangulate_v2(coords):
       coords = barrelShift(coords)
   return triangulated
 
-def triangulate_v3(coords):
-  triangulated = []              # [((x,y), (x,y), (x,y))]
-
-  def clipEar():
-    if (len(coords) >= 3):
-      firstEar = getEarOfVertex(coords, 0)
-      if (not isConcave(firstEar) and noOtherVertexInFirstEar(coords)):
-        triangulated.append(firstEar)
-        coords = removeFirstEar(coords)
-      else:
-        coords = barrelShift(coords)
-      clipEar()
-
-  clipEar()
-  return triangulated
-
-print "Triangulator v1 result:"
-print triangulate_v1(sample)
-print "Triangulator v2 result:"
-print triangulate_v2(sample)
-print "Triangulator v3 result:"
-print triangulate_v3(sample)
+#def triangulate_v3(coords):
+#  triangulated = []              # [((x,y), (x,y), (x,y))]
+#
+#  def clipEar():
+#    if (len(coords) >= 3):
+#      firstEar = getEarOfVertex(coords, 0)
+#      if (not isConcave(firstEar) and noOtherVertexInFirstEar(coords)):
+#        triangulated.append(firstEar)
+#        coords = removeFirstEar(coords)
+#      else:
+#        coords = barrelShift(coords)
+#      clipEar()
+#
+#  clipEar()
+#  return triangulated
