@@ -89,7 +89,7 @@ def separateIntoPolygons(verts3D, directedEdges):
       foundNextEdge = False
       nextEdge = (0,0)
       for e in edgesFollowing[edge]:
-        if (not foundNextEdge and (normalTo(edge,e) == faceNormal) and (e not in face) and (not isReversedEdge(e,edge))):
+        if (not foundNextEdge and ((normalTo(edge,e) == faceNormal) or (normalTo(edge,e) == (0,0,0))) and (e not in face) and (not isReversedEdge(e,edge))):
           foundNextEdge = True
           nextEdge = e
       if (foundNextEdge):
@@ -103,12 +103,24 @@ def separateIntoPolygons(verts3D, directedEdges):
   def clipFace(es):
     if (len(es) >= 3):
       e1 = es[0]
-      e2 = filter(lambda e2 : not isReversedEdge(e1,e2), edgesFollowing[e1])[0] # is Python's filter lazy? Can this list be empty?
+      print "clipface first edge is", e1
+      e2 = filter(lambda e2 : not isReversedEdge(e1,e2), edgesFollowing[e1])[0] # is Python's filter lazy?
+      # Big problem:
+      # If tracing attached edges, e2 might not be clockwise from e1. You can't know until you've completed the shape which way it is oriented
+      # Yet it's important to remove directed edges, as both undirected edges and vertices are reused across the mesh
+      # How about: When tracing a face, follow undirected edges. Upon completion, orient clockwise, then remove and call recursively
+      # How can you tell if a shape is clockwise?
+      #   Draw a line +90 degrees to an edge. If it intersects the other sides of the polygon an odd number of times, then it's CW
+      # "Edge"-cases (har har) for when the intersection is at one of the vertices, and when the lines are colinear (not just parallel) 
+      # so if we are now traversing undirected edges, how do we not move backwards? edgesFollowing will have to be modified...
+
+      # Can this list be empty? -- I'm returning here to say, yes, it just indexed out of range
       polygon = completeFace(e1, e2)
+      print "Polygon found:", polygon
       polygons.append(polygon)
       clipFace(filter(lambda edge : edge not in polygon, es))
 
   clipFace(directedEdges)
   return polygons
 
-print separateIntoPolygons(sampleVerts3D, sampleDirectedEdges)
+#print separateIntoPolygons(sampleVerts3D, sampleDirectedEdges)

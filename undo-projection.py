@@ -273,7 +273,7 @@ for e in renumberedUnattachedEdges:
 
 directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
 print "directed edges", directedEdges
-#simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
+simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
 # for polygon in simplePolygons:
 #   constantAxisCoordinate = ###
 #   vertexTriples2D = triangulator.triangulate_v1(removeConstantAxis(polygon))

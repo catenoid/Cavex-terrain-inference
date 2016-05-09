@@ -69,10 +69,11 @@ def addHiddenFloor(contour):
 def addHiddenCeiling(contour):
   return triangulateWall(contour, ceilingHeight(contour), lambda t1, t2 : connectToCeiling(t1,t2))
 
-for contour in hiddenTerrainContours:
-  contourVerts3D = map(lambda v : uniqueVerts3D[v], contour)
-  tri = addHiddenFloor(contourVerts3D)
-  for t in tri:
-    print t 
+# need verts3D and hiddenTerrainContours (directed path of 3d vertices)
+# for contour in hiddenTerrainContours:
+#   contourVerts3D = map(lambda v : verts3D[v], contour)
+#   tri = addHiddenFloor(contourVerts3D)
+#   for t in tri:
+#     print t 
   # Triangulate floorContour (That becomes part of the hidden mesh)
 # Whether or not we add a floor or ceiling depends on which side is in the foreground
