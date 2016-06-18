@@ -1,3 +1,4 @@
+import numpy as np
 # The visible faces of a set of two steps
 sampleVerts3D = [
   ( 0, 0,  0),
@@ -57,6 +58,8 @@ def normalisedCrossProduct(delta1, delta2):
   # to avoid the possibiliy of treating the unattached contour as a face,
   # hence getting stuck because the normals change freely
   # Though in the context of ignoring acyclic paths, this may not be necessary
+  
+  # Think this needs rewriting in taking the abs value of cross
   d1_x, d1_y, d1_z = delta1
   d2_x, d2_y, d2_z = delta2
   x = d1_y * d2_z - d1_z * d2_y
@@ -64,10 +67,32 @@ def normalisedCrossProduct(delta1, delta2):
   z = d1_x * d2_y - d1_y * d2_x
   return (unit(x), unit(y), unit(z))
 
+# How embarassing
+def cross(delta1,delta2):
+  d1_x, d1_y, d1_z = delta1
+  d2_x, d2_y, d2_z = delta2
+  x = d1_y * d2_z - d1_z * d2_y
+  y = d1_z * d2_x - d1_x * d2_z
+  z = d1_x * d2_y - d1_y * d2_x
+  return (x,y,z)
+
+def dot(delta1,delta2):
+  d1_x, d1_y, d1_z = delta1
+  d2_x, d2_y, d2_z = delta2
+  return d1_x * d2_x + d1_y * d2_y + d1_z * d2_z
+
+def norm(v):
+  x,y,z = v
+  return np.sqrt(x**2 + y**2 + z**2)
+
 def isReversedEdge(e1,e2):
   v1,v2 = e1
   v3,v4 = e2
   return (v1 == v4) and (v2 == v3)
+
+def reverse(e):
+  v1,v2 = e
+  return (v2,v1)
 
 def separateIntoPolygons(verts3D, directedEdges):
   def doesEdgeFollow(edge):
@@ -88,21 +113,32 @@ def separateIntoPolygons(verts3D, directedEdges):
   def areColinear(e1,e2):
     return (normalTo(e1,e2) == (0,0,0))
 
+  def closerToInterior(edge):
+    v_previous, v_shared = edge
+    delta0 = subtract3(verts3D[v_previous], verts3D[v_shared])
+    def angleCCW(e):
+      assert(e[0] == v_shared)
+      delta1 = subtract3(verts3D[e[1]], verts3D[e[0]])
+      theta = np.arccos(dot(delta0, delta1) / (norm(delta0) * norm(delta1)))
+      return theta if cross(delta0, delta1)>0 else theta + np.pi
+    return (lambda e1,e2 : cmp(angleCCW(e1),angleCCW(e2)))
+
   def completeFace(e1,e2):
+    print "complete face called with",e1,e2
     face = [e1,e2]
     faceNormal = normalTo(e1,e2)
- 
+    # This still fails. But it only seems to be wrong if you begin at a vertex where *four* planes intersect, like 0
+    # Because the plane trace goes around and tries to do the other face too instead of terminating
+    # However it's the only vertex met during foreground traversal, unless you use two ground plane pieces
+
     def addNextCoplanarEdge(edge):
-      foundNextEdge = False
-      nextEdge = (0,0)
-      for e in edgesFollowing[edge]:
-        if (not foundNextEdge \
-            and (e not in face) \
-            and (not isReversedEdge(e,edge)) \
-            and ((normalTo(edge,e) == faceNormal) or areColinear(edge,e))):
-          foundNextEdge = True
-          nextEdge = e
-      if (foundNextEdge):
+      isValidNextEdge = lambda e : (e not in face) \
+                               and (not isReversedEdge(e,edge)) \
+                               and ((normalTo(edge,e) == faceNormal) or areColinear(edge,e))
+      possibleNextEdges = sorted(filter(isValidNextEdge, edgesFollowing[edge]), closerToInterior(edge))
+      print "possibleNextEdges to ",edge,"are", possibleNextEdges
+      if (possibleNextEdges != []):
+        nextEdge = possibleNextEdges[0]
         face.append(nextEdge)
         addNextCoplanarEdge(nextEdge)
 
@@ -119,14 +155,17 @@ def separateIntoPolygons(verts3D, directedEdges):
     if (len(es) >= 3):
       e1 = es[0]
       e2s = filter(lambda e2 : doesEdgeFollow(e1)(e2) and normalIsUnitVector(e1,e2), es[1:])
+      print "e1:",e1,"e2s:",e2s
       polygon = []
       while (polygon == []):
         polygon = completeFace(e1, e2s.pop())
         # Can e2s exhaust without completing a face? Shouldn't be possible, as each undirected edge represents a face to be completed
+        # Hah hah, what foolish optimism. IndexError, pop from an empty list
+      print "Found polygon:", polygon
       polygons.append(polygon)
       clipFace(filter(lambda edge : edge not in polygon, es))
 
   clipFace(directedEdges)
   return polygons
 
-print separateIntoPolygons(sampleVerts3D, sampleDirectedEdges)
+#print separateIntoPolygons(sampleVerts3D, sampleDirectedEdges)

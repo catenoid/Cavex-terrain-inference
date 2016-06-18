@@ -42,9 +42,10 @@ attachedEdges = [
   (0,11),
 ]
 
-unattachedPaths = [ 
+coplanarPaths = [ 
 # A contour aliased to an acyclic graph goes counter-clockwise from above
 # So the colour paired with a directed edge is the colour on the outside of the contour
+# First vertex must be found in foreground traversal, until I check for 'undef's
 [ # Back of steps
   ((11,10), 'g'),
   ((10,8), 'g'),
@@ -61,14 +62,38 @@ unattachedPaths = [
   ((8,10), 'w'),
   ((10,11), 'w'),
 ],
-[ # Ground
+[ # Ground: Left half
+# Avoiding duplicates with the above path implies there will be 5 edges
+  ((11,0), 'w'),
   ((0,12), 'w'),
-  ((12,13), 'w'),
-  ((13,14), 'w'),
-  ((14,15), 'w'),
-  ((15,12), 'w'),
+  ((12,15), 'w'),
+  ((15,14), 'w'),
+  ((14,9), 'w'), 
+#  ((9,8), 'w'),
+#  ((8,10), 'w'),
+#  ((10,11), 'w'),
+],
+[ # Ground: Right half
+#  ((1,2), 'w'),
+#  ((2,5), 'w'),
+#  ((5,6), 'w'),
+#  ((6,9), 'w'),
+  ((9,14), 'w'),
+  ((14,13), 'w'),
+  ((13,12), 'w'),
   ((12,0), 'w'),
+  ((0,1), 'w'),
 ]
+# The addition of two ground halves has caused lots of edge to be repeated
+
+#[ # Ground
+#  ((0,12), 'w'),
+#  ((12,13), 'w'),
+#  ((13,14), 'w'),
+#  ((14,15), 'w'),
+#  ((15,12), 'w'),
+#  ((12,0), 'w'),
+#]
 ]
 
 adjacentVertices = [[] for v in verts2D]
@@ -207,20 +232,26 @@ def dealias(path):
   dealiasedVerts = []
   v = verts3D[path[0][0][0]] # The first vertex in the path must have been met in fg traversal, so the delta path can be anchored
   for dv in coplanarDisplacements3D(path):
+    print "v prior to addition:",v
+    print "dv:",dv
     nextVertex = add3(v,dv)
     dealiasedVerts.append(nextVertex)
+    print "nextvertex:",nextVertex
     v = nextVertex
+    print "v after assignment:",v
   return dealiasedVerts
 
 unattachedEdges = []
 vertexLoops = []
 
-for path in unattachedPaths:
+for path in coplanarPaths:
   vertsToAdd = dealias(path)
   firstNewVertex = len(verts3D)
   lastNewVertex = firstNewVertex + len(vertsToAdd)
   pathVertices = range(firstNewVertex, lastNewVertex-1)
-  edgesToAdd = [ (i,i+1) for i in pathVertices ]
+  edgesToAdd = [ (i,i+1) for i in pathVertices ] + [(lastNewVertex-1, firstNewVertex)]
+  # The first edge of the unattached path for the hidden floor is not added, causing a pop from empty list
+  # First edge in the ground plane is also not added, potentially explaining why the rest of the shape is not added
   verts3D += vertsToAdd
   unattachedEdges += edgesToAdd
   vertexLoops.append(pathVertices)
@@ -273,7 +304,7 @@ for e in renumberedUnattachedEdges:
 
 directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
 print "directed edges", directedEdges
-simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
+#simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
 # for polygon in simplePolygons:
 #   constantAxisCoordinate = ###
 #   vertexTriples2D = triangulator.triangulate_v1(removeConstantAxis(polygon))
