@@ -61,7 +61,19 @@ def noOtherVertexInFirstEar(coords):
   # But the range coords[2:-1] assumes we are testing all other vertices against the firstEar
   #   so it doesn't make sense to include firstEar as a parameter
 
-def triangulate_v1(polygonCoords):  # [(x,y)]
+def triangulate(coords):
+  triangulated = []              # [((x,y), (x,y), (x,y))]
+  while (len(coords) >= 3):
+    firstEar = getEarOfVertex(coords, 0)
+    if (not isConcave(firstEar) and noOtherVertexInFirstEar(coords)):
+      triangulated.append(firstEar)
+      coords = removeFirstEar(coords)
+    else:
+      coords = barrelShift(coords)
+  return triangulated
+
+# The functions below are preserved for theoretical interest
+def triangulate_v2(polygonCoords):  # [(x,y)]
   triangulated = []              # [((x,y), (x,y), (x,y))]
 
   def clipEar(coords):
@@ -74,17 +86,6 @@ def triangulate_v1(polygonCoords):  # [(x,y)]
         clipEar(barrelShift(coords))
 
   clipEar(polygonCoords)
-  return triangulated
-
-def triangulate_v2(coords):
-  triangulated = []              # [((x,y), (x,y), (x,y))]
-  while (len(coords) >= 3):
-    firstEar = getEarOfVertex(coords, 0)
-    if (not isConcave(firstEar) and noOtherVertexInFirstEar(coords)):
-      triangulated.append(firstEar)
-      coords = removeFirstEar(coords)
-    else:
-      coords = barrelShift(coords)
   return triangulated
 
 #def triangulate_v3(coords):
