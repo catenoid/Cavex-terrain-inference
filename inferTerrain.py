@@ -1,3 +1,5 @@
+import triangulator
+
 # INFER HIDDEN TERRAIN
 # Follow unattached edge paths which alias foreground and background vertices
 # Transform paths to contours
@@ -30,6 +32,10 @@ def hasZeroArea(triangle):
   return v1 == v2 or v2 == v3 or v1 == v3
 # (What about if all three vertices are colinear?)
 
+# Whether or not we add a floor or ceiling depends on which side is in the foreground
+# If the lower (closer to the bottom of the page) side is the foreground => hidden floor
+# If the lower side is the background => hidden ceiling
+# However I do not yet know how to algorithmically determine this
 def floorHeight(contour):
   return min(map(lambda (x,y,z) : y, contour))
 
@@ -37,17 +43,12 @@ def ceilingHeight(contour):
   return max(map(lambda (x,y,z) : y, contour))
 
 # A "wall" of rectangles joins the hidden floor/ceiling to the visible mesh
-# The wall is bound in the y-axis by two contours
-# The "flat" contour traces the coplanar face that is hidden from the camera (the "floor"/"ceiling")
-# The "tooth" contour runs along the top/bottom of the wall 
-#   "Tooth" because the contour changes in altitude, like crooked teeth
-def wallSegmentBounds(contour, y):
-  aliasedInXZPlane = groupXZAliased(contour)
-  flatContour = map(lambda vs : (vs[0][0], y, vs[0][2]), aliasedInXZPlane)
-  toothContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
-  return zip(flatContour, toothContour)
-
+# The wall is bound in the y-axis by two contours:
+#   The "flat" contour traces the coplanar face that is hidden from the camera (the "floor"/"ceiling")
+#   The "tooth" contour runs along the top/bottom of the wall 
+#   "Tooth" because the contour changes in altitude at right angles, like crooked teeth
 # A rectangular wall panel is composed of two identical right triangles: left ("L") and right ("R")
+
 def connectToFloor(left_side, right_side):
   flat_L, (tooth_first_L, tooth_last_L) = left_side
   flat_R, (tooth_first_R, tooth_last_R) = right_side
@@ -62,25 +63,19 @@ def connectToCeiling(left_side, right_side):
   triangle2 = (flat_L,        flat_R, tooth_first_R)
   return filter(lambda t : not hasZeroArea(t), [triangle1, triangle2])
 
-def triangulateWall(contour, y, triangulate):
-  wallTriangles = []
-  a = wallSegmentBounds(contour, y)
-  cyclicPairs = [ (i,(i+1)%len(a)) for i in range(len(a)) ]
-  for (i,j) in cyclicPairs:
-    wallTriangles += triangulate(a[i], a[j])
-  return wallTriangles
-
 def addHiddenFloor(contour): # contour :: [(x,y,z)]
-  return triangulateWall(contour, floorHeight(contour), lambda t1, t2 : connectToFloor(t1,t2))
+  aliasedInXZPlane = groupXZAliased(contour)
+  y = floorHeight(contour)
+  flatContour  = map(lambda vs : (vs[0][0], y, vs[0][2]), aliasedInXZPlane)
+  toothContour = map(lambda vs :         (vs[0], vs[-1]), aliasedInXZPlane)
 
-def addHiddenCeiling(contour):
-  return triangulateWall(contour, ceilingHeight(contour), lambda t1, t2 : connectToCeiling(t1,t2))
+  wallCorners = zip(flatContour, toothContour)
+  wallTriangles = []
+  cyclicPairs = [ (i,(i+1)%len(wallCorners)) for i in range(len(wallCorners)) ]
+  for (i,j) in cyclicPairs:
+    wallTriangles += connectToFloor(wallCorners[i], wallCorners[j])
 
-# need verts3D and hiddenTerrainContours (directed path of 3d vertices)
-# for contour in hiddenTerrainContours:
-#   contourVerts3D = map(lambda v : verts3D[v], contour)
-#   tri = addHiddenFloor(contourVerts3D)
-#   for t in tri:
-#     print t 
-  # Triangulate floorContour (That becomes part of the hidden mesh)
-# Whether or not we add a floor or ceiling depends on which side is in the foreground
+  return wallTriangles
+#  floorTriangles2D = triangulator.triangulate(map(birdsEyeView, flatContour)) # :: [((x,z), (x,z), (x,z))]
+#  for triangle in floorTriangles2D:
+#    floorTriangles += map(lambda (x,z) : (x,y,z), triangle)
