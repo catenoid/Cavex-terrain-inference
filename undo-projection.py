@@ -248,7 +248,7 @@ def dealias(path):
   return dealiasedVerts
 
 unattachedEdges = []
-vertexLoops = []
+invisibleMeshContours = []
 
 # Trace the contours which alias to an acyclic graph of vertices, and add edges going counter-clockwise around the contour
 for path in coplanarPaths:
@@ -259,7 +259,7 @@ for path in coplanarPaths:
   edgesToAdd = [ (i,i+1) for i in pathVertices[:-1] ] + [(lastNewVertex-1, firstNewVertex)]
   verts3D += vertsToAdd
   unattachedEdges += edgesToAdd
-  vertexLoops.append(pathVertices)
+  invisibleMeshContours.append(pathVertices)
 
 # Alias vertices that refer to the same 3D coordinate
 # This happens:
@@ -288,7 +288,7 @@ for newIndex in range(len(uniqueVerts3D)):
 
 renumberedAttachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in attachedEdges ]
 renumberedUnattachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in unattachedEdges ]
-hiddenTerrainContours = map(lambda loop : map(lambda v : oldToNewIndex[v], loop), vertexLoops)
+renumberedInvisibleMeshContours = [ map(lambda v : uniqueVerts3D[oldToNewIndex[v]], contour) for contour in invisibleMeshContours ]
 
 print "Visible mesh:"
 print "Vertices:"
@@ -318,5 +318,5 @@ for polygon in simplePolygons[1:]:
 
 # TRIANGULATE THE INVISIBLE MESH
 print "\nInvisible Triangles:"
-for contour in hiddenTerrainContours:
-  print inferTerrain.addHiddenFloor(map(lambda v : uniqueVerts3D[v], contour))
+for contour in renumberedInvisibleMeshContours:
+  print inferTerrain.addHiddenFloor(contour)
