@@ -257,8 +257,8 @@ for path in coplanarPaths:
   vertsToAdd = dealias(path)
   firstNewVertex = len(verts3D)
   lastNewVertex = firstNewVertex + len(vertsToAdd)
-  pathVertices = range(firstNewVertex, lastNewVertex-1)
-  edgesToAdd = [ (i,i+1) for i in pathVertices ] + [(lastNewVertex-1, firstNewVertex)]
+  pathVertices = range(firstNewVertex, lastNewVertex)
+  edgesToAdd = [ (i,i+1) for i in pathVertices[:-1] ] + [(lastNewVertex-1, firstNewVertex)]
   verts3D += vertsToAdd
   unattachedEdges += edgesToAdd
   vertexLoops.append(pathVertices)
@@ -309,15 +309,16 @@ directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumber
 print "directed edges", directedEdges
 
 # TRIANGULATE THE VISIBLE MESH
-# Separate the whole mesh into simple polygons, which can then be triangulated
-#   Potential method:
-#   "Factor-out" the constant co-ordinate of the polygon and pass the 2D coordinates to triangulate
-#   "Re-distribute" the constant co-ordinate
+# Separate into simple polygons
+# The one contour which goes CCW is the hole in the ground plane
 
 simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
 print "\nPolygons:"
 for polygon in simplePolygons:
   print polygon
-#   constantAxisCoordinate = ###
-#   vertexTriples2D = triangulator.triangulate_v1(removeConstantAxis(polygon))
-#   my_triangles = redistribute(constantAxisCoordinate, vertexTriples2D)
+  # Triangulate polygons that are CW (i.e. they are faces)
+
+# TRIANGULATE THE INVISIBLE MESH
+print "\nContours are;"
+for c in hiddenTerrainContours:
+  print c
