@@ -39,27 +39,27 @@ def ceilingHeight(contour):
 # A "wall" of rectangles joins the hidden floor/ceiling to the visible mesh
 # The wall is bound in the y-axis by two contours
 # The "flat" contour traces the coplanar face that is hidden from the camera (the "floor"/"ceiling")
-# The "jagged" contour runs along the top/bottom of the wall 
-#   "Jagged" because the contour changes in altitude, like crooked teeth
+# The "tooth" contour runs along the top/bottom of the wall 
+#   "Tooth" because the contour changes in altitude, like crooked teeth
 def wallSegmentBounds(contour, y):
   aliasedInXZPlane = groupXZAliased(contour)
   flatContour = map(lambda vs : (vs[0][0], y, vs[0][2]), aliasedInXZPlane)
-  jaggedContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
-  return zip(flatContour, jaggedContour)
+  toothContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
+  return zip(flatContour, toothContour)
 
 # A rectangular wall panel is composed of two identical right triangles: left ("L") and right ("R")
 def connectToFloor(left_side, right_side):
-  flat_L, (jagged_first_L, jagged_last_L) = left_side
-  flat_R, (jagged_first_R, jagged_last_R) = right_side
-  triangle1 = (jagged_last_L, flat_R,         flat_L)
-  triangle2 = (jagged_last_L, jagged_first_R, flat_R)
+  flat_L, (tooth_first_L, tooth_last_L) = left_side
+  flat_R, (tooth_first_R, tooth_last_R) = right_side
+  triangle1 = (tooth_last_L,        flat_R, flat_L)
+  triangle2 = (tooth_last_L, tooth_first_R, flat_R)
   return filter(lambda t : not hasZeroArea(t), [triangle1, triangle2])
 
 def connectToCeiling(left_side, right_side):
-  flat_L, (jagged_first_L, jagged_last_L) = left_side
-  flat_R, (jagged_first_R, jagged_last_R) = right_side
-  triangle1 = (flat_L, jagged_first_R, jagged_last_L)
-  triangle2 = (flat_L, flat_R,         jagged_first_R)
+  flat_L, (tooth_first_L, tooth_last_L) = left_side
+  flat_R, (tooth_first_R, tooth_last_R) = right_side
+  triangle1 = (flat_L, tooth_first_R,  tooth_last_L)
+  triangle2 = (flat_L,        flat_R, tooth_first_R)
   return filter(lambda t : not hasZeroArea(t), [triangle1, triangle2])
 
 def triangulateWall(contour, y, triangulate):
