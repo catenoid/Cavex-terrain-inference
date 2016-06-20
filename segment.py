@@ -124,7 +124,6 @@ def separateIntoPolygons(verts3D, directedEdges):
     return (lambda e1,e2 : cmp(angleCCW(e1),angleCCW(e2)))
 
   def completeFace(e1,e2):
-    print "complete face called with",e1,e2
     face = [e1,e2]
     faceNormal = normalTo(e1,e2)
     # This still fails. But it only seems to be wrong if you begin at a vertex where *four* planes intersect, like 0
@@ -136,7 +135,6 @@ def separateIntoPolygons(verts3D, directedEdges):
                                and (not isReversedEdge(e,edge)) \
                                and ((normalTo(edge,e) == faceNormal) or areColinear(edge,e))
       possibleNextEdges = sorted(filter(isValidNextEdge, edgesFollowing[edge]), closerToInterior(edge))
-      print "possibleNextEdges to ",edge,"are", possibleNextEdges
       if (possibleNextEdges != []):
         nextEdge = possibleNextEdges[0]
         face.append(nextEdge)
@@ -155,13 +153,11 @@ def separateIntoPolygons(verts3D, directedEdges):
     if (len(es) >= 3):
       e1 = es[0]
       e2s = filter(lambda e2 : doesEdgeFollow(e1)(e2) and normalIsUnitVector(e1,e2), es[1:])
-      print "e1:",e1,"e2s:",e2s
       polygon = []
       while (polygon == []):
         polygon = completeFace(e1, e2s.pop())
         # Can e2s exhaust without completing a face? Shouldn't be possible, as each undirected edge represents a face to be completed
         # Hah hah, what foolish optimism. IndexError, pop from an empty list
-      print "Found polygon:", polygon
       polygons.append(polygon)
       clipFace(filter(lambda edge : edge not in polygon, es))
 
