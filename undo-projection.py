@@ -1,4 +1,5 @@
 import segment
+import inferTerrain
 #import triangulator
 
 # Representing a drawing on isometric paper:
@@ -240,13 +241,9 @@ def dealias(path):
   # check 0 and 1 (vertex pair in edge), increment i until verts3D doesn't return undef
   # then start indexed i into coplanarDisplacements3D
   for dv in coplanarDisplacements3D(path):
-    print "v prior to addition:",v
-    print "dv:",dv
     nextVertex = add3(v,dv)
     dealiasedVerts.append(nextVertex)
-    print "nextvertex:",nextVertex
     v = nextVertex
-    print "v after assignment:",v
   return dealiasedVerts
 
 unattachedEdges = []
@@ -320,5 +317,7 @@ for polygon in simplePolygons:
 
 # TRIANGULATE THE INVISIBLE MESH
 print "\nContours are;"
-for c in hiddenTerrainContours:
-  print c
+for contour in hiddenTerrainContours:
+  print "Vertex indices:", contour
+  print "Triangles:"
+  print inferTerrain.addHiddenFloor(map(lambda v : uniqueVerts3D[v], contour))
