@@ -1,10 +1,10 @@
 import triangulator
 
 # INFER HIDDEN TERRAIN
-# Follow unattached edge paths which alias foreground and background vertices
-# Transform paths to contours
-# Add hidden floor/ceiling (to triangulate)
-# Triangulate the wall connecting the unattached edge contour to the hidden floor/ceiling
+# Follow unattached edge contours which alias foreground and background vertices
+# Add triangles for
+#  - the hidden floor/ceiling
+#  - the wall connecting the hidden floor / ceiling to the visible mesh
 
 def birdsEyeView((x,y,z)):
   return (x,z)
@@ -12,10 +12,9 @@ def birdsEyeView((x,y,z)):
 def isXZaliased(v1,v2):
   return birdsEyeView(v1) == birdsEyeView(v2)
 
-# Input a list of 3d coordinates for a hidden contour.
-# Group these coordinates into "chords," those which are consecutive and vertically colinear
-# Returns a list of "chords"
-def groupXZAliased(path):
+# Group coordinates into "chords" that are aliased in the XZ plane (i.e. consecutive and vertically colinear)
+# Each chord represents a wall corner
+def groupXZAliased(path): # path :: [(x,y,z)]
   aliased = []
   chord = [path[0]]
   barrelShifted = path[1:] + [path[0]]
@@ -75,7 +74,14 @@ def addHiddenFloor(contour): # contour :: [(x,y,z)]
   for (i,j) in cyclicPairs:
     wallTriangles += connectToFloor(wallCorners[i], wallCorners[j])
 
-  return wallTriangles
-#  floorTriangles2D = triangulator.triangulate(map(birdsEyeView, flatContour)) # :: [((x,z), (x,z), (x,z))]
-#  for triangle in floorTriangles2D:
-#    floorTriangles += map(lambda (x,z) : (x,y,z), triangle)
+  floorContour = map(birdsEyeView, flatContour)
+  floorContour.reverse()
+  floorTriangles2D = triangulator.triangulate(floorContour) # :: [((x,z), (x,z), (x,z))]
+  floorTriangles = []
+
+  def distributeFloorHeight(triangle):
+    (x1,z1), (x2,z2), (x3,z3) = triangle
+    return ((x1,y,z1), (x2,y,z2), (x3,y,z3))
+
+  floorTriangles = map(distributeFloorHeight, floorTriangles2D)
+  return floorTriangles + wallTriangles

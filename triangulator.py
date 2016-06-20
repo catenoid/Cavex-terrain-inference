@@ -7,6 +7,7 @@
 # 3. Go to 1
 
 # Cartesian coordinates of "hourglass" polygon
+# Must be directed clockwise
 sample = [
   (0,1),
   (1,2),
