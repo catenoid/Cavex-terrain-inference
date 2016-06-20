@@ -1,6 +1,7 @@
 import segment
 import inferTerrain
-#import triangulator
+import triangulator
+import projectionTriangulator
 
 # Representing a drawing on isometric paper:
 # Orient the paper with one set of graticules vertically upright
@@ -300,24 +301,22 @@ print "\nUnattached edges"
 for e in renumberedUnattachedEdges:
   print e
 
-# Convert to directed edges, where attached edges are bidirectional
-# Closed faces go clockwise, so coplanar paths go counter-clockwise
-directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
-print "directed edges", directedEdges
-
 # TRIANGULATE THE VISIBLE MESH
-# Separate into simple polygons
-# The one contour which goes CCW is the hole in the ground plane
-
+# Make edges directional, such that visible polygons orient clockwise
+directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
 simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
-print "\nPolygons:"
-for polygon in simplePolygons:
-  print polygon
-  # Triangulate polygons that are CW (i.e. they are faces)
+
+# The one "polygon" which orients CCW is the hole in the ground plane
+# The triangulator only works on CW triangles, which does not return when passed this polygon
+# Since I know the first polygon to appear *is* this polygon, I run the for loop on the tail of the polygon list
+# For shame, I know
+
+print "\nVisible Triangles:"
+for polygon in simplePolygons[1:]:
+  verts3D = [ uniqueVerts3D[v1] for (v1,v2) in polygon ]
+  print projectionTriangulator.triangulate(verts3D)
 
 # TRIANGULATE THE INVISIBLE MESH
-print "\nContours are;"
+print "\nInvisible Triangles:"
 for contour in hiddenTerrainContours:
-  print "Vertex indices:", contour
-  print "Triangles:"
   print inferTerrain.addHiddenFloor(map(lambda v : uniqueVerts3D[v], contour))
