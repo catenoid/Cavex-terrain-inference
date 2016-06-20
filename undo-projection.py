@@ -1,5 +1,5 @@
-import segment
-import triangulator
+#import segment
+#import triangulator
 
 # Representing a drawing on isometric paper:
 # Orient the paper with one set of graticules vertically upright
@@ -62,39 +62,43 @@ coplanarPaths = [
   ((8,10), 'w'),
   ((10,11), 'w'),
 ],
-[ # Ground: Left half
-# Avoiding duplicates with the above path implies there will be 5 edges
-  ((11,0), 'w'),
-  ((0,12), 'w'),
-  ((12,15), 'w'),
-  ((15,14), 'w'),
-  ((14,9), 'w'), 
-#  ((9,8), 'w'),
-#  ((8,10), 'w'),
-#  ((10,11), 'w'),
-],
-[ # Ground: Right half
-#  ((1,2), 'w'),
-#  ((2,5), 'w'),
-#  ((5,6), 'w'),
-#  ((6,9), 'w'),
-  ((9,14), 'w'),
-  ((14,13), 'w'),
-  ((13,12), 'w'),
-  ((12,0), 'w'),
-  ((0,1), 'w'),
 ]
-# The addition of two ground halves has caused lots of edge to be repeated
 
-#[ # Ground
+# THIS GROUND PLANE IS NOTHING BUT TROUBLE
+#[ # Ground: Left half
+## Avoiding duplicates with the above path implies there will be 5 edges
+#  ((11,0), 'w'),
 #  ((0,12), 'w'),
-#  ((12,13), 'w'),
-#  ((13,14), 'w'),
-#  ((14,15), 'w'),
-#  ((15,12), 'w'),
+#  ((12,15), 'w'),
+#  ((15,14), 'w'),
+#  ((14,9), 'w'), 
+##  ((9,8), 'w'),
+##  ((8,10), 'w'),
+##  ((10,11), 'w'),
+#],
+#[ # Ground: Right half
+##  ((1,2), 'w'),
+##  ((2,5), 'w'),
+##  ((5,6), 'w'),
+##  ((6,9), 'w'),
+#  ((9,14), 'w'),
+#  ((14,13), 'w'),
+#  ((13,12), 'w'),
 #  ((12,0), 'w'),
+#  ((0,1), 'w'),
 #]
-]
+## The addition of two ground halves has caused lots of edge to be repeated
+#
+##[ # Ground
+##  ((0,12), 'w'),
+##  ((12,13), 'w'),
+##  ((13,14), 'w'),
+##  ((14,15), 'w'),
+##  ((15,12), 'w'),
+##  ((12,0), 'w'),
+##]
+#]
+# DEATH TO GROUND PLANES -- do a birds eye view of all white triangles, combine, mask, triangulate
 
 adjacentVertices = [[] for v in verts2D]
 for (v1,v2) in attachedEdges:
@@ -225,12 +229,16 @@ def foregroundTraversal(v1):
 foregroundTraversal(0)
 
 # Dealiasing vertices along unattached edge paths
+# All edge traversals are coplanar, but two edges are aliases with two different colours
 def coplanarDisplacements3D(path):
   return [coplanarDisplacement(delta(vertexPair), colour) for (vertexPair, colour) in path]
 
 def dealias(path):
   dealiasedVerts = []
   v = verts3D[path[0][0][0]] # The first vertex in the path must have been met in fg traversal, so the delta path can be anchored
+  # Do this properly path[i][0][0,1]
+  # check 0 and 1 (vertex pair in edge), increment i until verts3D doesn't return undef
+  # then start indexed i into coplanarDisplacements3D
   for dv in coplanarDisplacements3D(path):
     print "v prior to addition:",v
     print "dv:",dv
@@ -244,14 +252,13 @@ def dealias(path):
 unattachedEdges = []
 vertexLoops = []
 
+# Trace the contours which alias to an acyclic graph of vertices, and add edges going counter-clockwise around the contour
 for path in coplanarPaths:
   vertsToAdd = dealias(path)
   firstNewVertex = len(verts3D)
   lastNewVertex = firstNewVertex + len(vertsToAdd)
   pathVertices = range(firstNewVertex, lastNewVertex-1)
   edgesToAdd = [ (i,i+1) for i in pathVertices ] + [(lastNewVertex-1, firstNewVertex)]
-  # The first edge of the unattached path for the hidden floor is not added, causing a pop from empty list
-  # First edge in the ground plane is also not added, potentially explaining why the rest of the shape is not added
   verts3D += vertsToAdd
   unattachedEdges += edgesToAdd
   vertexLoops.append(pathVertices)
@@ -296,14 +303,17 @@ print "\nUnattached edges"
 for e in renumberedUnattachedEdges:
   print e
 
+directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
+print "directed edges", directedEdges
+
 # TRIANGULATE THE VISIBLE MESH
-# Convert to directed edges: attached edges bidirectional. Faces clockwise, so hidden paths counterclockwise
-# Separate into simple polygons
+# Convert to directed edges: attached edges bidirectional.
+# Closed faces go clockwise, so coplanar paths go counter-clockwise
+# Separate the whole mesh into simple polygons, which can then be triangulated
+#   Potential method:
 #   "Factor-out" the constant co-ordinate and pass the list of 2D coordinates to triangulate
 #   "Re-distribute" the constant co-ordinate
 
-directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
-print "directed edges", directedEdges
 #simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
 # for polygon in simplePolygons:
 #   constantAxisCoordinate = ###

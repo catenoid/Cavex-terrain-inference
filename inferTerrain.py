@@ -10,6 +10,8 @@ def birdsEyeView((x,y,z)):
 def isXZaliased(v1,v2):
   return birdsEyeView(v1) == birdsEyeView(v2)
 
+# input a list of 3d coords. Group those points into "chords" which are vertically colinear
+# returns a list of "chords"
 def groupXZAliased(path):
   aliased = []
   chord = [path[0]]
@@ -22,7 +24,8 @@ def groupXZAliased(path):
       chord = [v]
   return aliased
 
-def zeroArea(triangle):
+# What about if all three vertices are colinear?
+def hasZeroArea(triangle):
   v1,v2,v3 = triangle
   return v1 == v2 or v2 == v3 or v1 == v3
 
@@ -33,6 +36,7 @@ def ceilingHeight(contour):
   return max(map(lambda (x,y,z) : y, contour))
 
 # A "wall" of rectangles joins the hidden floor/ceiling to the visible mesh
+# The flat contour traces the coplanar face that is hidden from the camera (the "floor"/"ceiling")
 # A rectangular wall segment is composed of two identical right triangles
 # j = (i+1) % len(aliasedVerts3D), but (+) can't go in a variable name
 def wallSegmentBounds(contour, y):
@@ -46,14 +50,14 @@ def connectToFloor(left_side, right_side):
   flat_R, (jagged_first_R, jagged_last_R) = right_side
   triangle1 = (jagged_last_L, flat_R,         flat_L)
   triangle2 = (jagged_last_L, jagged_first_R, flat_R)
-  return filter(lambda t : not zeroArea(t), [triangle1, triangle2])
+  return filter(lambda t : not hasZeroArea(t), [triangle1, triangle2])
 
 def connectToCeiling(left_side, right_side):
   flat_L, (jagged_first_L, jagged_last_L) = left_side
   flat_R, (jagged_first_R, jagged_last_R) = right_side
   triangle1 = (flat_L, jagged_first_R, jagged_last_L)
   triangle2 = (flat_L, flat_R,         jagged_first_R)
-  return filter(lambda t : not zeroArea(t), [triangle1, triangle2])
+  return filter(lambda t : not hasZeroArea(t), [triangle1, triangle2])
 
 def triangulateWall(contour, y, triangulate):
   wallTriangles = []
