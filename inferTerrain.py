@@ -10,8 +10,9 @@ def birdsEyeView((x,y,z)):
 def isXZaliased(v1,v2):
   return birdsEyeView(v1) == birdsEyeView(v2)
 
-# input a list of 3d coords. Group those points into "chords" which are vertically colinear
-# returns a list of "chords"
+# Input a list of 3d coordinates for a hidden contour.
+# Group these coordinates into "chords," those which are consecutive and vertically colinear
+# Returns a list of "chords"
 def groupXZAliased(path):
   aliased = []
   chord = [path[0]]
@@ -24,10 +25,10 @@ def groupXZAliased(path):
       chord = [v]
   return aliased
 
-# What about if all three vertices are colinear?
 def hasZeroArea(triangle):
   v1,v2,v3 = triangle
   return v1 == v2 or v2 == v3 or v1 == v3
+# (What about if all three vertices are colinear?)
 
 def floorHeight(contour):
   return min(map(lambda (x,y,z) : y, contour))
@@ -36,15 +37,17 @@ def ceilingHeight(contour):
   return max(map(lambda (x,y,z) : y, contour))
 
 # A "wall" of rectangles joins the hidden floor/ceiling to the visible mesh
-# The flat contour traces the coplanar face that is hidden from the camera (the "floor"/"ceiling")
-# A rectangular wall segment is composed of two identical right triangles
-# j = (i+1) % len(aliasedVerts3D), but (+) can't go in a variable name
+# The wall is bound in the y-axis by two contours
+# The "flat" contour traces the coplanar face that is hidden from the camera (the "floor"/"ceiling")
+# The "jagged" contour runs along the top/bottom of the wall 
+#   "Jagged" because the contour changes in altitude, like crooked teeth
 def wallSegmentBounds(contour, y):
   aliasedInXZPlane = groupXZAliased(contour)
   flatContour = map(lambda vs : (vs[0][0], y, vs[0][2]), aliasedInXZPlane)
   jaggedContour = map(lambda vs : (vs[0], vs[-1]), aliasedInXZPlane)
   return zip(flatContour, jaggedContour)
 
+# A rectangular wall panel is composed of two identical right triangles: left ("L") and right ("R")
 def connectToFloor(left_side, right_side):
   flat_L, (jagged_first_L, jagged_last_L) = left_side
   flat_R, (jagged_first_R, jagged_last_R) = right_side
@@ -67,7 +70,7 @@ def triangulateWall(contour, y, triangulate):
     wallTriangles += triangulate(a[i], a[j])
   return wallTriangles
 
-def addHiddenFloor(contour):
+def addHiddenFloor(contour): # contour :: [(x,y,z)]
   return triangulateWall(contour, floorHeight(contour), lambda t1, t2 : connectToFloor(t1,t2))
 
 def addHiddenCeiling(contour):
