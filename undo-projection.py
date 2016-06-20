@@ -1,4 +1,4 @@
-#import segment
+import segment
 #import triangulator
 
 # Representing a drawing on isometric paper:
@@ -303,20 +303,21 @@ print "\nUnattached edges"
 for e in renumberedUnattachedEdges:
   print e
 
+# Convert to directed edges, where attached edges are bidirectional
+# Closed faces go clockwise, so coplanar paths go counter-clockwise
 directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
 print "directed edges", directedEdges
 
 # TRIANGULATE THE VISIBLE MESH
-# Convert to directed edges: attached edges bidirectional.
-# Closed faces go clockwise, so coplanar paths go counter-clockwise
 # Separate the whole mesh into simple polygons, which can then be triangulated
 #   Potential method:
-#   "Factor-out" the constant co-ordinate and pass the list of 2D coordinates to triangulate
+#   "Factor-out" the constant co-ordinate of the polygon and pass the 2D coordinates to triangulate
 #   "Re-distribute" the constant co-ordinate
 
-#simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
-# for polygon in simplePolygons:
+simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
+print "\nPolygons:"
+for polygon in simplePolygons:
+  print polygon
 #   constantAxisCoordinate = ###
 #   vertexTriples2D = triangulator.triangulate_v1(removeConstantAxis(polygon))
 #   my_triangles = redistribute(constantAxisCoordinate, vertexTriples2D)
-
