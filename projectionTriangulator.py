@@ -29,18 +29,13 @@ def triangulate(verts3D):
   distributeY = lambda ((x1,z1), (x2,z2), (x3,z3)) : ((x1,y,z1), (x2,y,z2), (x3,y,z3))
   distributeZ = lambda ((x1,y1), (x2,y2), (x3,y3)) : ((x1,y1,z), (x2,y2,z), (x3,y3,z))
   
-  def getTriangles(to2D, to3D):
-    verts2D = map(to2D, verts3D)
-    verts2D.reverse()
-    return map(to3D, triangulator.triangulate(verts2D))
-
   if inXplane:
     verts2D = map(removeX, verts3D)
     verts2D.reverse()
     triangles = map(distributeX, triangulator.triangulate(verts2D))
   elif inYplane:
     verts2D = map(removeY, verts3D)
-    triangles = map(distributeY, triangulator.triangulate(verts2D))
+    triangles = map(lambda (v1,v2,v3) : (v1,v3,v2), map(distributeY, triangulator.triangulate(verts2D)))
   elif inZplane:
     verts2D = map(removeZ, verts3D)
     verts2D.reverse()
