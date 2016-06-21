@@ -2,6 +2,7 @@ import segment
 import inferTerrain
 import triangulator
 import projectionTriangulator
+import createUnityObject
 
 # Representing a drawing on isometric paper:
 # Orient the paper with one set of graticules vertically upright
@@ -309,6 +310,8 @@ directedEdges = renumberedAttachedEdges + reverseEdges(renumberedAttachedEdges) 
 simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
 
 # The one "polygon" which orients CCW is the hole in the ground plane
+# Selectively reverse the edges of one of the simple polygons,
+# then check for consistancy in the edges of this reversed polygon and all the other simple polygons
 def identifyCCWpolygon(polygons):
   for i in range(len(polygons)):
     edges = reverseEdges(polygons[i])
@@ -338,8 +341,13 @@ invisibleTriangles = []
 for contour in renumberedInvisibleMeshContours:
   invisibleTriangles += inferTerrain.addHiddenFloor(contour)
 
-print "Visible Triangles:"
-print visibleTriangles
+print "\n\nVisible Triangles:"
+print createUnityObject.generateVisibleMesh("Testing_visible",visibleTriangles)
 
-print "\nInvisible Triangles from aliased contours:"
-print invisibleTriangles
+print "\n\nInvisible Triangles from aliased contours:"
+print createUnityObject.generateConvexMesh("Testing_convex",invisibleTriangles)
+
+# Report from testing meshes in Unity:
+# White triangles OK, but grey and black triangles need to be oriented the opposite way
+# For the mesh names, implement conformation to C sharp naming rules
+
