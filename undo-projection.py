@@ -29,7 +29,6 @@ verts2D = [
   (6,-1),
 ]
 
-
 # Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
 attachedEdges = [
   (0,1),
@@ -310,12 +309,10 @@ directedEdges = renumberedAttachedEdges + reverseEdges(renumberedAttachedEdges) 
 simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
 
 # The one "polygon" which orients CCW is the hole in the ground plane
-# The triangulator only works on CW triangles, so this polygon needs to be removed 
-
 def identifyCCWpolygon(polygons):
   for i in range(len(polygons)):
     edges = reverseEdges(polygons[i])
-    for j in range(0,i)+range((i+1),len(polygons)):
+    for j in range(0,i) + range((i+1),len(polygons)):
       edges += polygons[j]
 
     sortedEdges = sorted(edges + reverseEdges(edges))
@@ -331,12 +328,18 @@ def identifyCCWpolygon(polygons):
 
 del simplePolygons[identifyCCWpolygon(simplePolygons)]
 
-print "\nVisible Triangles from CW polygons:"
+visibleTriangles = []
 for polygon in simplePolygons:
   verts3D = [ uniqueVerts3D[v1] for (v1,v2) in polygon ]
-  print projectionTriangulator.triangulate(verts3D)
+  visibleTriangles += projectionTriangulator.triangulate(verts3D)
 
 # TRIANGULATE THE INVISIBLE MESH
-print "\nInvisible Triangles from aliased contours:"
+invisibleTriangles = []
 for contour in renumberedInvisibleMeshContours:
-  print inferTerrain.addHiddenFloor(contour)
+  invisibleTriangles += inferTerrain.addHiddenFloor(contour)
+
+print "Visible Triangles:"
+print visibleTriangles
+
+print "\nInvisible Triangles from aliased contours:"
+print invisibleTriangles
