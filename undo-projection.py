@@ -29,7 +29,6 @@ verts2D = [
   (6,-1),
 ]
 
-# Make a cut in the ground plane from (0,0) to (0,-1) to make it a polygon oriented clockwise, without holes
 
 # Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
 attachedEdges = [
@@ -67,6 +66,7 @@ coplanarPaths = [
 ]
 
 # THIS GROUND PLANE IS NOTHING BUT TROUBLE
+# ??? Make a cut in the ground plane from (0,0) to (0,-1) to make it a polygon oriented clockwise, without holes
 #[ # Ground: Left half
 ## Avoiding duplicates with the above path implies there will be 5 edges
 #  ((11,0), 'w'),
@@ -301,22 +301,42 @@ print "\nUnattached edges"
 for e in renumberedUnattachedEdges:
   print e
 
+def reverseEdges(edges):
+  return map(lambda (v1,v2) : (v2,v1), edges)
+
 # TRIANGULATE THE VISIBLE MESH
 # Make edges directional, such that visible polygons orient clockwise
-directedEdges = renumberedAttachedEdges + map(lambda (v1,v2) : (v2,v1), renumberedAttachedEdges) + renumberedUnattachedEdges
+directedEdges = renumberedAttachedEdges + reverseEdges(renumberedAttachedEdges) + renumberedUnattachedEdges
 simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
 
 # The one "polygon" which orients CCW is the hole in the ground plane
-# The triangulator only works on CW triangles, which does not return when passed this polygon
-# Since I know the first polygon to appear *is* this polygon, I run the for loop on the tail of the polygon list
-# For shame, I know
+# The triangulator only works on CW triangles, so this polygon needs to be removed 
 
-print "\nVisible Triangles:"
-for polygon in simplePolygons[1:]:
+def identifyCCWpolygon(polygons):
+  for i in range(len(polygons)):
+    edges = reverseEdges(polygons[i])
+    for j in range(0,i)+range((i+1),len(polygons)):
+      edges += polygons[j]
+
+    sortedEdges = sorted(edges + reverseEdges(edges))
+    if (len(sortedEdges) > 1):
+      duplicateSeen = False
+      previousEdge = sortedEdges[0]
+      for edge in sortedEdges[1:]:
+        if (edge == previousEdge):
+          duplicateSeen = True
+        previousEdge = edge
+      if (duplicateSeen == True):
+        return i
+
+del simplePolygons[identifyCCWpolygon(simplePolygons)]
+
+print "\nVisible Triangles from CW polygons:"
+for polygon in simplePolygons:
   verts3D = [ uniqueVerts3D[v1] for (v1,v2) in polygon ]
   print projectionTriangulator.triangulate(verts3D)
 
 # TRIANGULATE THE INVISIBLE MESH
-print "\nInvisible Triangles:"
+print "\nInvisible Triangles from aliased contours:"
 for contour in renumberedInvisibleMeshContours:
   print inferTerrain.addHiddenFloor(contour)
