@@ -1,34 +1,22 @@
-name = "sample"
-triangles = [
-((-2, 1, -1), (-2, 1, 0), (0, 1, 0)),
-((-2, 1, -1), (0, 1, 0), (0, 1, -1)),
-((0, 0, 0), (-3, 0, 0), (-2, 1, 0)),
-((0, 0, 0), (-2, 1, 0), (0, 1, 0)),
-((-2, 2, -2), (-2, 2, -1), (0, 2, -1)),
-((-2, 2, -2), (0, 2, -1), (0, 2, -2)),
-((0, 1, -1), (-2, 1, -1), (-2, 2, -1)),
-((0, 1, -1), (-2, 2, -1), (0, 2, -1)),
-((0, 1, -1), (0, 2, -1), (0, 2, -2)),
-((0, 1, -2), (0, 0, -3), (0, 0, 0)),
-((0, 1, -2), (0, 0, 0), (0, 1, 0)),
-((0, 1, -2), (0, 1, 0), (0, 1, -1)),
-((0, 1, -2), (0, 1, -1), (0, 2, -2))
-]
+usingDirectives = "using UnityEngine; using System.Collections;\n"
 
-def generateMesh(name, isConcave, triangles):
-  cavex = "Concave" if isConcave else "Convex"
-  print """using UnityEngine;
-using System.Collections;
-
-public class """+name+""" : """+cavex+"""_only {
-    Vector3[] my_verts = new Vector3[] {"""
+def generateInvisibleMesh(name, isConcave, triangles):
+  cavex = "Concave_only" if isConcave else "Convex_only"
+  mesh = usingDirectives+"public class "+name+" : "+cavex+" {\nVector3[] my_verts = new Vector3[] {\n"
   for v1,v2,v3 in triangles:
-    print "        new Vector3",v1,", new Vector3",v2,", new Vector3",v3,","
-  print """    };
-    
-    public """+name+"""() {
-        vertices = my_verts;
-    }
-}"""
+    mesh += "new Vector3"+str(v1)+", new Vector3"+str(v3)+", new Vector3"+str(v2)+",\n"
+  mesh += "}; public "+name+"() {vertices = my_verts;} }"
+  return mesh
 
-generateMesh(name,True,triangles)
+def generateConcaveMesh(name, triangles):
+  return generateInvisibleMesh(name, True, triangles)
+
+def generateConvexMesh(name, triangles):
+  return generateInvisibleMesh(name, False, triangles)
+
+def generateVisibleMesh(name, triangles):
+  mesh = usingDirectives+"public class "+name+" : Visible_surface {\nVector3[] verts = new Vector3[] {\n"
+  for v1,v2,v3 in triangles:
+    mesh += "new Vector3"+str(v1)+", new Vector3"+str(v3)+", new Vector3"+str(v2)+",\n"
+  mesh += "}; public "+name+"() {concaveVerts = verts;} }"
+  return mesh
