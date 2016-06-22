@@ -1,4 +1,4 @@
-import triangulator
+import projectionTriangulator
 
 # INFER HIDDEN TERRAIN
 # Follow unattached edge contours which alias foreground and background vertices
@@ -74,14 +74,7 @@ def addHiddenFloor(contour): # contour :: [(x,y,z)]
   for (i,j) in cyclicPairs:
     wallTriangles += connectToFloor(wallCorners[i], wallCorners[j])
 
-  floorContour = map(birdsEyeView, flatContour)
-  floorContour.reverse()
-  floorTriangles2D = triangulator.triangulate(floorContour) # :: [((x,z), (x,z), (x,z))]
-  floorTriangles = []
+  flatContour.reverse()
+  floorTriangles = projectionTriangulator.triangulate(flatContour)
 
-  def distributeFloorHeight(triangle):
-    (x1,z1), (x2,z2), (x3,z3) = triangle
-    return ((x1,y,z1), (x2,y,z2), (x3,y,z3))
-
-  floorTriangles = map(distributeFloorHeight, floorTriangles2D)
   return floorTriangles + wallTriangles
