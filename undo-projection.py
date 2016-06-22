@@ -288,7 +288,7 @@ for newIndex in range(len(uniqueVerts3D)):
 
 renumberedAttachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in attachedEdges ]
 renumberedUnattachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in unattachedEdges ]
-renumberedInvisibleMeshContours = [ map(lambda v : uniqueVerts3D[oldToNewIndex[v]], contour) for contour in invisibleMeshContours ]
+convexMeshContours = [ map(lambda v : uniqueVerts3D[oldToNewIndex[v]], contour) for contour in invisibleMeshContours ]
 
 print "Visible mesh:"
 print "Vertices:"
@@ -337,17 +337,19 @@ for polygon in simplePolygons:
   visibleTriangles += projectionTriangulator.triangulate(verts3D)
 
 # TRIANGULATE THE INVISIBLE MESH
-invisibleTriangles = []
-for contour in renumberedInvisibleMeshContours:
-  invisibleTriangles += inferTerrain.addHiddenFloor(contour)
+convexOnlyTriangles = []
+concaveOnlyTriangles = []
+for convexContour in convexMeshContours:
+  convexOnlyTriangles += inferTerrain.addHiddenFloor(convexContour)
+  reflectedContour = map(lambda (x,y,z) : (x,-y,z), convexContour)
+  concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
 
-print "\n\nVisible Triangles:"
-print createUnityObject.generateVisibleMesh("Testing_visible",visibleTriangles)
-
-print "\n\nInvisible Triangles from aliased contours:"
-print createUnityObject.generateConvexMesh("Testing_convex",invisibleTriangles)
-
-# Report from testing meshes in Unity:
-# White triangles OK, but grey and black triangles need to be oriented the opposite way
 # For the mesh names, implement conformation to C sharp naming rules
+print "\n\nVisible Triangles:"
+print createUnityObject.generateVisibleMesh("Testing_visible", visibleTriangles)
 
+print "\n\nInvisible Triangles from convex contour:"
+print createUnityObject.generateConvexMesh("Testing_convex", convexOnlyTriangles)
+
+print "\n\nInvisible Triangles from concave contour:"
+print createUnityObject.generateConvexMesh("Testing_concave", concaveOnlyTriangles)
