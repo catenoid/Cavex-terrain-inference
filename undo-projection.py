@@ -65,43 +65,6 @@ coplanarPaths = [
 ],
 ]
 
-# THIS GROUND PLANE IS NOTHING BUT TROUBLE
-# ??? Make a cut in the ground plane from (0,0) to (0,-1) to make it a polygon oriented clockwise, without holes
-#[ # Ground: Left half
-## Avoiding duplicates with the above path implies there will be 5 edges
-#  ((11,0), 'w'),
-#  ((0,12), 'w'),
-#  ((12,15), 'w'),
-#  ((15,14), 'w'),
-#  ((14,9), 'w'), 
-##  ((9,8), 'w'),
-##  ((8,10), 'w'),
-##  ((10,11), 'w'),
-#],
-#[ # Ground: Right half
-##  ((1,2), 'w'),
-##  ((2,5), 'w'),
-##  ((5,6), 'w'),
-##  ((6,9), 'w'),
-#  ((9,14), 'w'),
-#  ((14,13), 'w'),
-#  ((13,12), 'w'),
-#  ((12,0), 'w'),
-#  ((0,1), 'w'),
-#]
-## The addition of two ground halves has caused lots of edge to be repeated
-#
-##[ # Ground
-##  ((0,12), 'w'),
-##  ((12,13), 'w'),
-##  ((13,14), 'w'),
-##  ((14,15), 'w'),
-##  ((15,12), 'w'),
-##  ((12,0), 'w'),
-##]
-#]
-# DEATH TO GROUND PLANES -- do a birds eye view of all white triangles, combine, mask, triangulate
-
 adjacentVertices = [[] for v in verts2D]
 for (v1,v2) in attachedEdges:
   adjacentVertices[v1].append(v2)
@@ -329,6 +292,10 @@ def identifyCCWpolygon(polygons):
       if (duplicateSeen == True):
         return i
 
+print "CCW polygon"
+ccwPolygon = simplePolygons[identifyCCWpolygon(simplePolygons)]
+print [ uniqueVerts3D[v1] for (v1,v2) in ccwPolygon ]
+
 del simplePolygons[identifyCCWpolygon(simplePolygons)]
 
 visibleTriangles = []
@@ -358,3 +325,9 @@ convexMesh.write(createUnityObject.generateConvexMesh(nameOfConvexMesh, convexOn
 nameOfConcaveMesh = "Testing_concave"
 concaveMesh = open(nameOfConcaveMesh+".cs", 'w')
 concaveMesh.write(createUnityObject.generateConcaveMesh(nameOfConcaveMesh, concaveOnlyTriangles))
+
+
+# Now these meshes are complete, the ground plane requires construction
+# Either:
+#   - Filter white meshes, use as a mask
+#   - use the ccw polygon
