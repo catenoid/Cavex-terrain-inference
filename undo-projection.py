@@ -345,11 +345,16 @@ for convexContour in convexMeshContours:
   concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
 
 # For the mesh names, implement conformation to C sharp naming rules
-print "\n\nVisible Triangles:"
-print createUnityObject.generateVisibleMesh("Testing_visible", visibleTriangles)
+# i.e. no spaces, begin with a capital letter
 
-print "\n\nInvisible Triangles from convex contour:"
-print createUnityObject.generateConvexMesh("Testing_convex", convexOnlyTriangles)
+nameOfVisibleMesh = "Testing_visible"
+visibleMesh = open(nameOfVisibleMesh+".cs", 'w')
+visibleMesh.write(createUnityObject.generateVisibleMesh(nameOfVisibleMesh, visibleTriangles))
 
-print "\n\nInvisible Triangles from concave contour:"
-print createUnityObject.generateConvexMesh("Testing_concave", concaveOnlyTriangles)
+nameOfConvexMesh = "Testing_convex"
+convexMesh = open(nameOfConvexMesh+".cs", 'w')
+convexMesh.write(createUnityObject.generateConvexMesh(nameOfConvexMesh, convexOnlyTriangles))
+
+nameOfConcaveMesh = "Testing_concave"
+concaveMesh = open(nameOfConcaveMesh+".cs", 'w')
+concaveMesh.write(createUnityObject.generateConcaveMesh(nameOfConcaveMesh, concaveOnlyTriangles))
