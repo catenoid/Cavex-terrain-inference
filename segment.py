@@ -1,6 +1,10 @@
+# Separate a mesh of orthogonal planes,
+# described by a directed graph of 3D vertices,
+# into simple polygons
 import numpy as np
-# The visible faces of a set of two steps
+
 sampleVerts3D = [
+# The visible faces of a set of two steps
   ( 0, 0,  0),
   ( 0, 0, -2),
   ( 0, 2, -2),
@@ -14,8 +18,8 @@ sampleVerts3D = [
   (-2, 0,  0),
 ]
 
-# Faces are directed clockwise
 sampleDirectedEdges = [
+# Faces are directed clockwise
 # "L-shape"
   (0, 1),
   (1, 2),
@@ -53,21 +57,6 @@ def subtract3(v1,v2):
 def unit(n):
   return n/n if (n != 0) else 0
 
-def normalisedCrossProduct(delta1, delta2):
-  # We need to distinguish cases where the surface normal renders the face invisble.
-  # to avoid the possibiliy of treating the unattached contour as a face,
-  # hence getting stuck because the normals change freely
-  # Though in the context of ignoring acyclic paths, this may not be necessary
-  
-  # Think this needs rewriting in taking the abs value of cross
-  d1_x, d1_y, d1_z = delta1
-  d2_x, d2_y, d2_z = delta2
-  x = d1_y * d2_z - d1_z * d2_y
-  y = d1_z * d2_x - d1_x * d2_z
-  z = d1_x * d2_y - d1_y * d2_x
-  return (unit(x), unit(y), unit(z))
-
-# How embarassing
 def cross(delta1,delta2):
   d1_x, d1_y, d1_z = delta1
   d2_x, d2_y, d2_z = delta2
@@ -75,6 +64,10 @@ def cross(delta1,delta2):
   y = d1_z * d2_x - d1_x * d2_z
   z = d1_x * d2_y - d1_y * d2_x
   return (x,y,z)
+
+def normalisedCrossProduct(delta1, delta2):
+  x,y,z = cross(delta1, delta2)
+  return (unit(x), unit(y), unit(z))
 
 def dot(delta1,delta2):
   d1_x, d1_y, d1_z = delta1
@@ -126,9 +119,6 @@ def separateIntoPolygons(verts3D, directedEdges):
   def completeFace(e1,e2):
     face = [e1,e2]
     faceNormal = normalTo(e1,e2)
-    # This still fails. But it only seems to be wrong if you begin at a vertex where *four* planes intersect, like 0
-    # Because the plane trace goes around and tries to do the other face too instead of terminating
-    # However it's the only vertex met during foreground traversal, unless you use two ground plane pieces
 
     def addNextCoplanarEdge(edge):
       isValidNextEdge = lambda e : (e not in face) \
@@ -156,8 +146,6 @@ def separateIntoPolygons(verts3D, directedEdges):
       polygon = []
       while (polygon == []):
         polygon = completeFace(e1, e2s.pop())
-        # Can e2s exhaust without completing a face? Shouldn't be possible, as each undirected edge represents a face to be completed
-        # Hah hah, what foolish optimism. IndexError, pop from an empty list
       polygons.append(polygon)
       clipFace(filter(lambda edge : edge not in polygon, es))
 
