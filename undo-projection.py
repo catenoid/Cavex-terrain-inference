@@ -65,6 +65,59 @@ stairCoplanarPaths = [
 ],
 ]
 
+archwayVerts2D = [
+  (0,0),
+  (1,0),
+  (1,1),
+  (2,1),
+  (2,0),
+  (3,0),
+  (3,2),
+  (2,3),
+  (-1,3),
+  (-1,1),
+  (0,2),
+]
+
+# Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
+archwayAttachedEdges = [
+  (0,10),
+  (0,1),
+  (0,9),
+  (8,10),
+  (6,10),
+  (2,4),
+  (3,4),
+  (4,5),
+]
+
+# Now there are multiple graphs of attached edges, so a DFS starting at vertex 0 does not traverse all vertices
+
+archwayCoplanarPaths = [ 
+# Hidden floor: CCW from above
+# Hidden ceiling: CW from above
+# Paired colour represents the plane of movement to traverse that edge
+# Once converted to 3D vector displacements, the absolute offset vertex must:
+#   - be met in foreground traversal (i.e., not 'undef' in verts3D)
+#   - not alias multiple 3d vertices (i.e., a tip on the rose tree)
+[ # top of arch
+  ((9,8), 'g'),
+  ((8,7), 'w'),
+  ((7,6), 'w'),
+  ((6,5), 'b'),
+  ((5,6), 'w'),
+  ((6,7), 'w'),
+  ((7,8), 'w'),
+  ((8,9), 'w'),
+],
+[ # doorway through arch
+  ((3,2), 'b'),
+  ((2,1), 'b'),
+  ((1,2), 'w'),
+  ((2,3), 'g'),
+],
+]
+
 def createAdjacencyGraph(verts2D, attachedEdges):
   adjacentVertices = [[] for v in verts2D]
   for (v1,v2) in attachedEdges:
@@ -304,4 +357,4 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
   concaveMesh.write(createUnityObject.generateConcaveMesh(nameOfConcaveMesh, concaveOnlyTriangles))
 
 if __name__ == "__main__":
-  triangulateIsometricGraph(stairVerts2D, stairAttachedEdges, stairCoplanarPaths)
+  triangulateIsometricGraph(archwayVerts2D, archwayAttachedEdges, archwayCoplanarPaths)
