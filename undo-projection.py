@@ -11,7 +11,7 @@ import createUnityObject
 # Representing 2D coordinates:
 # +Primary axis: azimuth = 60
 # +Secondary axis: azimuth = 0
-verts2D = [
+stairVerts2D = [
   (0,0),
   (3,0),
   (2,1),
@@ -31,7 +31,7 @@ verts2D = [
 ]
 
 # Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
-attachedEdges = [
+stairAttachedEdges = [
   (0,1),
   (2,3),
   (0,3),
@@ -43,7 +43,7 @@ attachedEdges = [
   (0,11),
 ]
 
-coplanarPaths = [ 
+stairCoplanarPaths = [
 # A contour aliased to an acyclic graph goes counter-clockwise from above
 # So the colour paired with a directed edge is the colour on the outside of the contour
 # First vertex must be found in foreground traversal, until I check for 'undef's
@@ -151,7 +151,7 @@ coplanarDisplacements = {
   'b' : coplanarZToVector3
 }
 
-def coplanarDisplacement(delta, colour):
+def coplanarVector3(delta, colour):
   scaleFactor = length(delta)
   axisAngle = azimuth(delta)
   unit = coplanarDisplacements[colour][axisAngle]
@@ -168,15 +168,11 @@ attachedEdgeToVector3 = {
   300 : (0,0,-1)
 }
 
-def orthogonalDisplacement(delta):
+def orthogonalVector3(delta):
   scaleFactor = length(delta)
   axisAngle = azimuth(delta)
   unit = attachedEdgeToVector3[axisAngle]
   return scale(unit, scaleFactor)
-
-def delta(vertexPair):
-  v1,v2 = vertexPair
-  return subtract2(verts2D[v2], verts2D[v1])
 
 def foregroundTraversal(verts2D, attachedEdges):
 # The 2D coordinate (0,0) will be anchored to 3D coordinate 'offset'
@@ -185,24 +181,20 @@ def foregroundTraversal(verts2D, attachedEdges):
   offset = (0,0,0)
   verts3D[0] = offset
   seen = []
-  def nextVertex(v1):
+  def DFS(v1):
     seen.append(v1)
     for v2 in adjacentVertexGraph[v1]:
       if (v2 not in seen):
-        verts3D[v2] = add3(verts3D[v1], orthogonalDisplacement(delta((v1,v2))))
-        nextVertex(v2)
-  nextVertex(0)
+        isometricDisplacement = subtract2(verts2D[v2], verts2D[v1])
+        verts3D[v2] = add3(verts3D[v1], orthogonalVector3(isometricDisplacement))
+        DFS(v2)
+  DFS(0)
   return verts3D
 
-# Dealiasing vertices along unattached edge paths
-# All edge traversals are coplanar, but two edges are aliases with two different colours
-def coplanarDisplacements3D(path):
-  return [coplanarDisplacement(delta(vertexPair), colour) for (vertexPair, colour) in path]
-
-def getAliasedVertices(path, startingVert3D):
+def getAliasedVertices(coplanarDisplacements, startingVert3D):
   dealiasedVerts = []
   v = startingVert3D
-  for dv in coplanarDisplacements3D(path):
+  for dv in coplanarDisplacements:
     nextVertex = add3(v,dv)
     dealiasedVerts.append(nextVertex)
     v = nextVertex
@@ -223,7 +215,6 @@ def createDuplicateDictionary(verts3D):
   return duplicates
 
 def createOldToNewIndexMapping(duplicates, oldVertexCount):
-# For an entry in toNewIndex to be 'undef', the vertex was not encountered in the foreground traversal
   uniqueVerts3D = duplicates.keys()
   toNewIndex = ['undef' for i in range(oldVertexCount)]
   for newIndex in range(len(uniqueVerts3D)):
@@ -267,7 +258,8 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
 
   for path in coplanarPaths:
     startingVert3D = verts3D[path[0][0][0]]
-    vertsToAdd = getAliasedVertices(path, startingVert3D)
+    coplanarDisplacements = [ coplanarVector3(subtract2(verts2D[v2], verts2D[v1]), colour) for ((v1,v2), colour) in path ]
+    vertsToAdd = getAliasedVertices(coplanarDisplacements, startingVert3D)
     firstNewVertex = len(verts3D)
     lastNewVertex = firstNewVertex + len(vertsToAdd)
     pathVertices = range(firstNewVertex, lastNewVertex)
@@ -312,4 +304,4 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
   concaveMesh.write(createUnityObject.generateConcaveMesh(nameOfConcaveMesh, concaveOnlyTriangles))
 
 if __name__ == "__main__":
-  triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths)
+  triangulateIsometricGraph(stairVerts2D, stairAttachedEdges, stairCoplanarPaths)
