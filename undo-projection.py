@@ -65,10 +65,12 @@ coplanarPaths = [
 ],
 ]
 
-adjacentVertices = [[] for v in verts2D]
-for (v1,v2) in attachedEdges:
-  adjacentVertices[v1].append(v2)
-  adjacentVertices[v2].append(v1)
+def createAdjacencyGraph(verts2D, attachedEdges):
+  adjacentVertices = [[] for v in verts2D]
+  for (v1,v2) in attachedEdges:
+    adjacentVertices[v1].append(v2)
+    adjacentVertices[v2].append(v1)
+  return adjacentVertices
 
 def add3(v1,v2):
   v1_x, v1_y, v1_z = v1
@@ -141,10 +143,8 @@ coplanarZToVector3 = {
 }
 
 # Colours
-# White 'w': +y normal
-# Grey 'g': +x normal
-# Black 'b': +z normal
-# (Legacy notation from drafting on paper and shading in, to replace)
+# White 'w', +y normal | Grey 'g', +x normal | Black 'b', +z normal
+# Legacy notation from drafting on paper and shading in, to replace
 coplanarDisplacements = {
   'w' : coplanarYToVector3,
   'g' : coplanarXToVector3,
@@ -178,103 +178,69 @@ def delta(vertexPair):
   v1,v2 = vertexPair
   return subtract2(verts2D[v2], verts2D[v1])
 
+def foregroundTraversal(verts2D, attachedEdges):
 # The 2D coordinate (0,0) will be anchored to 3D coordinate 'offset'
-offset = (0,0,0)
-verts3D = ['undef' for v in verts2D]
-verts3D[0] = offset
-
-seen = []
-def foregroundTraversal(v1):
-  seen.append(v1)
-  for v2 in adjacentVertices[v1]:
-    if (v2 not in seen):
-      verts3D[v2] = add3(verts3D[v1], orthogonalDisplacement(delta((v1,v2))))
-      foregroundTraversal(v2)
-
-foregroundTraversal(0)
+  adjacentVertexGraph = createAdjacencyGraph(verts2D, attachedEdges)
+  verts3D = ['undef' for v in verts2D]
+  offset = (0,0,0)
+  verts3D[0] = offset
+  seen = []
+  def nextVertex(v1):
+    seen.append(v1)
+    for v2 in adjacentVertexGraph[v1]:
+      if (v2 not in seen):
+        verts3D[v2] = add3(verts3D[v1], orthogonalDisplacement(delta((v1,v2))))
+        nextVertex(v2)
+  nextVertex(0)
+  return verts3D
 
 # Dealiasing vertices along unattached edge paths
 # All edge traversals are coplanar, but two edges are aliases with two different colours
 def coplanarDisplacements3D(path):
   return [coplanarDisplacement(delta(vertexPair), colour) for (vertexPair, colour) in path]
 
-def dealias(path):
+def getAliasedVertices(path, startingVert3D):
   dealiasedVerts = []
-  v = verts3D[path[0][0][0]] # The first vertex in the path must have been met in fg traversal, so the delta path can be anchored
-  # Do this properly path[i][0][0,1]
-  # check 0 and 1 (vertex pair in edge), increment i until verts3D doesn't return undef
-  # then start indexed i into coplanarDisplacements3D
+  v = startingVert3D
   for dv in coplanarDisplacements3D(path):
     nextVertex = add3(v,dv)
     dealiasedVerts.append(nextVertex)
     v = nextVertex
   return dealiasedVerts
 
-unattachedEdges = []
-invisibleMeshContours = []
-
-# Trace the contours which alias to an acyclic graph of vertices, and add edges going counter-clockwise around the contour
-for path in coplanarPaths:
-  vertsToAdd = dealias(path)
-  firstNewVertex = len(verts3D)
-  lastNewVertex = firstNewVertex + len(vertsToAdd)
-  pathVertices = range(firstNewVertex, lastNewVertex)
-  edgesToAdd = [ (i,i+1) for i in pathVertices[:-1] ] + [(lastNewVertex-1, firstNewVertex)]
-  verts3D += vertsToAdd
-  unattachedEdges += edgesToAdd
-  invisibleMeshContours.append(pathVertices)
-
+def createDuplicateDictionary(verts3D):
 # Alias vertices that refer to the same 3D coordinate
-# This happens:
-#   (1) When an unattached edge path meets an attached edge, and the intersecting vertex 3D coordinate is calculated twice
-#   (2) At the starting vertex of an unattached path, when the contour wraps upon itself
-duplicates = {} # { (x,y,z) : [ vertices that refer to that coordinate] }
+#   (1) When a coplanar path meets an attached edge, and the intersecting 3D coordinate is calculated twice
+#   (2) At the starting vertex of a coplanar path, when the contour wraps upon itself
+  duplicates = {} # { (x,y,z) : [ vertices that refer to that coordinate] }
+  for oldIndex in range(len(verts3D)):
+    v = verts3D[oldIndex]
+    if (v != 'undef'):
+      if v in duplicates:
+        duplicates[v].append(oldIndex)
+      else:
+        duplicates[v] = [oldIndex]
+  return duplicates
 
-for oldIndex in range(len(verts3D)):
-  v = verts3D[oldIndex]
-  if (v != 'undef'):
-    if (duplicates.__contains__(v)):
-      duplicates[v].append(oldIndex)
-    else:
-      duplicates[v] = [oldIndex]
+def createOldToNewIndexMapping(duplicates, oldVertexCount):
+# For an entry in toNewIndex to be 'undef', the vertex was not encountered in the foreground traversal
+  uniqueVerts3D = duplicates.keys()
+  toNewIndex = ['undef' for i in range(oldVertexCount)]
+  for newIndex in range(len(uniqueVerts3D)):
+    v = uniqueVerts3D[newIndex]
+    oldIndices = duplicates[v]
+    for i in oldIndices:
+      toNewIndex[i] = newIndex
+  return toNewIndex
 
-uniqueVerts3D = duplicates.keys()
-
-# Renumber the edges to according to uniqueVerts3D
-# For an entry in oldToNewIndex to be 'undef', the vertex was not encountered in the foreground traversal
-oldToNewIndex = ['undef' for v in verts3D]
-for newIndex in range(len(uniqueVerts3D)):
-  v = uniqueVerts3D[newIndex]
-  oldIndices = duplicates[v]
-  for i in oldIndices:
-    oldToNewIndex[i] = newIndex
-
-renumberedAttachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in attachedEdges ]
-renumberedUnattachedEdges = [ (oldToNewIndex[v1], oldToNewIndex[v2]) for (v1,v2) in unattachedEdges ]
-convexMeshContours = [ map(lambda v : uniqueVerts3D[oldToNewIndex[v]], contour) for contour in invisibleMeshContours ]
-
-print "Visible mesh:"
-print "Vertices:"
-for i in range(len(uniqueVerts3D)):
-  print i,":",uniqueVerts3D[i]
-print "\nAttached edges:"
-for e in renumberedAttachedEdges:
-  print e
-print "\nUnattached edges"
-for e in renumberedUnattachedEdges:
-  print e
+def renumberEdges(toNewIndex, edges):
+  return [ (toNewIndex[v1], toNewIndex[v2]) for (v1,v2) in edges ]
 
 def reverseEdges(edges):
   return map(lambda (v1,v2) : (v2,v1), edges)
 
-# TRIANGULATE THE VISIBLE MESH
 # Make edges directional, such that visible polygons orient clockwise
-directedEdges = renumberedAttachedEdges + reverseEdges(renumberedAttachedEdges) + renumberedUnattachedEdges
-simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
-
 # The one "polygon" which orients CCW is the hole in the ground plane
-# Selectively reverse the edges of one of the simple polygons,
-# then check for consistancy in the edges of this reversed polygon and all the other simple polygons
 def identifyCCWpolygon(polygons):
   for i in range(len(polygons)):
     edges = reverseEdges(polygons[i])
@@ -292,42 +258,58 @@ def identifyCCWpolygon(polygons):
       if (duplicateSeen == True):
         return i
 
-print "CCW polygon"
-ccwPolygon = simplePolygons[identifyCCWpolygon(simplePolygons)]
-print [ uniqueVerts3D[v1] for (v1,v2) in ccwPolygon ]
+def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
+  foregroundVerts3D = foregroundTraversal(verts2D, attachedEdges)
 
-del simplePolygons[identifyCCWpolygon(simplePolygons)]
+  unattachedEdges = []
+  invisibleMeshContours = []
+  verts3D = foregroundVerts3D
 
-visibleTriangles = []
-for polygon in simplePolygons:
-  verts3D = [ uniqueVerts3D[v1] for (v1,v2) in polygon ]
-  visibleTriangles += projectionTriangulator.triangulate(verts3D)
+  for path in coplanarPaths:
+    startingVert3D = verts3D[path[0][0][0]]
+    vertsToAdd = getAliasedVertices(path, startingVert3D)
+    firstNewVertex = len(verts3D)
+    lastNewVertex = firstNewVertex + len(vertsToAdd)
+    pathVertices = range(firstNewVertex, lastNewVertex)
+    edgesToAdd = [ (i,i+1) for i in pathVertices[:-1] ] + [(lastNewVertex-1, firstNewVertex)]
+    verts3D += vertsToAdd
+    unattachedEdges += edgesToAdd
+    invisibleMeshContours.append(pathVertices)
 
-# TRIANGULATE THE INVISIBLE MESH
-convexOnlyTriangles = []
-concaveOnlyTriangles = []
-for convexContour in convexMeshContours:
-  convexOnlyTriangles += inferTerrain.addHiddenFloor(convexContour)
-  reflectedContour = map(lambda (x,y,z) : (x,-y,z), convexContour)
-  concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
+  duplicates = createDuplicateDictionary(verts3D)
+  uniqueVerts3D = duplicates.keys()
+  toNewIndex = createOldToNewIndexMapping(duplicates, len(verts3D))
+  renumberedAttachedEdges = renumberEdges(toNewIndex, attachedEdges)
+  renumberedUnattachedEdges = renumberEdges(toNewIndex, unattachedEdges)
+  renumberedInvisibleMeshContours = [ map(lambda v : uniqueVerts3D[toNewIndex[v]], contour) for contour in invisibleMeshContours ]
 
-# For the mesh names, implement conformation to C sharp naming rules
-# i.e. no spaces, begin with a capital letter
+  directedEdges = renumberedAttachedEdges + reverseEdges(renumberedAttachedEdges) + renumberedUnattachedEdges
+  simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
+  del simplePolygons[identifyCCWpolygon(simplePolygons)]
+  
+  visibleTriangles = []
+  for polygon in simplePolygons:
+    polygonVerts3D = [ uniqueVerts3D[v1] for (v1,v2) in polygon ]
+    visibleTriangles += projectionTriangulator.triangulate(polygonVerts3D)
+  
+  convexOnlyTriangles = []
+  concaveOnlyTriangles = []
+  for convexContour in renumberedInvisibleMeshContours:
+    convexOnlyTriangles += inferTerrain.addHiddenFloor(convexContour)
+    reflectedContour = map(lambda (x,y,z) : (x,-y,z), convexContour)
+    concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
 
-nameOfVisibleMesh = "Testing_visible"
-visibleMesh = open(nameOfVisibleMesh+".cs", 'w')
-visibleMesh.write(createUnityObject.generateVisibleMesh(nameOfVisibleMesh, visibleTriangles))
+  nameOfVisibleMesh = "Testing_visible-mod"
+  visibleMesh = open(nameOfVisibleMesh+".cs", 'w')
+  visibleMesh.write(createUnityObject.generateVisibleMesh(nameOfVisibleMesh, visibleTriangles))
+  
+  nameOfConvexMesh = "Testing_convex-mod"
+  convexMesh = open(nameOfConvexMesh+".cs", 'w')
+  convexMesh.write(createUnityObject.generateConvexMesh(nameOfConvexMesh, convexOnlyTriangles))
+  
+  nameOfConcaveMesh = "Testing_concave-mod"
+  concaveMesh = open(nameOfConcaveMesh+".cs", 'w')
+  concaveMesh.write(createUnityObject.generateConcaveMesh(nameOfConcaveMesh, concaveOnlyTriangles))
 
-nameOfConvexMesh = "Testing_convex"
-convexMesh = open(nameOfConvexMesh+".cs", 'w')
-convexMesh.write(createUnityObject.generateConvexMesh(nameOfConvexMesh, convexOnlyTriangles))
-
-nameOfConcaveMesh = "Testing_concave"
-concaveMesh = open(nameOfConcaveMesh+".cs", 'w')
-concaveMesh.write(createUnityObject.generateConcaveMesh(nameOfConcaveMesh, concaveOnlyTriangles))
-
-
-# Now these meshes are complete, the ground plane requires construction
-# Either:
-#   - Filter white meshes, use as a mask
-#   - use the ccw polygon
+if __name__ == "__main__":
+  triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths)
