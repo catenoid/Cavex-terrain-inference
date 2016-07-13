@@ -51,15 +51,15 @@ def ceilingHeight(contour):
 def connectToFloor(left_side, right_side):
   flat_L, (tooth_first_L, tooth_last_L) = left_side
   flat_R, (tooth_first_R, tooth_last_R) = right_side
-  triangle1 = (tooth_last_L,        flat_R, flat_L)
-  triangle2 = (tooth_last_L, tooth_first_R, flat_R)
+  triangle1 = (tooth_last_L, flat_L,        flat_R)
+  triangle2 = (tooth_last_L, flat_R, tooth_first_R)
   return filter(lambda t : not hasZeroArea(t), [triangle1, triangle2])
 
 def connectToCeiling(left_side, right_side):
   flat_L, (tooth_first_L, tooth_last_L) = left_side
   flat_R, (tooth_first_R, tooth_last_R) = right_side
-  triangle1 = (flat_L, tooth_first_R,  tooth_last_L)
-  triangle2 = (flat_L,        flat_R, tooth_first_R)
+  triangle1 = (flat_L, tooth_first_L,  tooth_last_R)
+  triangle2 = (flat_L, tooth_first_R,        flat_R)
   return filter(lambda t : not hasZeroArea(t), [triangle1, triangle2])
 
 def addHidden(contour, y, connector): # contour :: [(x,y,z)]
