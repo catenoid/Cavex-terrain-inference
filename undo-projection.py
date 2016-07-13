@@ -2,7 +2,6 @@ from collections import deque
 
 import segment
 import inferTerrain
-import triangulator
 import projectionTriangulator
 import createUnityObject
 
@@ -371,9 +370,11 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
 
   print "uniqueVerts3D",uniqueVerts3D
   print "directedEdges",directedEdges
+
   simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
-  del simplePolygons[identifyCCWpolygon(simplePolygons)]
-  
+  #del simplePolygons[identifyCCWpolygon(simplePolygons)]
+### The ccw identifier failed: select manually as index 1
+  del simplePolygons[1]
   visibleTriangles = []
   for polygon in simplePolygons:
     polygonVerts3D = [ uniqueVerts3D[v1] for (v1,v2) in polygon ]
@@ -381,10 +382,19 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
   
   convexOnlyTriangles = []
   concaveOnlyTriangles = []
-  for convexContour in invisibleMeshContours:
-    convexOnlyTriangles += inferTerrain.addHiddenFloor(convexContour)
-    reflectedContour = map(lambda (x,y,z) : (x,-y,z), convexContour)
-    concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
+#  for convexContour in invisibleMeshContours:
+#    print "invisibleMeshContours",convexContour
+#    convexOnlyTriangles += inferTerrain.addHiddenFloor(convexContour)
+#    reflectedContour = map(lambda (x,y,z) : (x,-y,z), convexContour)
+#    concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
+### Need to manually identify floor vs. ceiling 
+  invisibleMeshContours[0].reverse()
+  convexOnlyTriangles += inferTerrain.addHiddenFloor(invisibleMeshContours[0])
+  reflectedContour = map(lambda (x,y,z) : (x,-y,z), invisibleMeshContours[0])
+  concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
+  convexOnlyTriangles += inferTerrain.addHiddenCeiling(invisibleMeshContours[1])
+  reflectedContour = map(lambda (x,y,z) : (x,-y,z), invisibleMeshContours[1])
+  concaveOnlyTriangles += inferTerrain.addHiddenCeiling(reflectedContour)
 
   nameOfVisibleMesh = "Testing_visible_mod_2"
   visibleMesh = open(nameOfVisibleMesh+".cs", 'w')
