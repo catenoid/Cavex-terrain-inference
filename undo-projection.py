@@ -392,21 +392,20 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
   convexOnlyTriangles += inferTerrain.addHiddenFloor(invisibleMeshContours[0])
   reflectedContour = map(lambda (x,y,z) : (x,-y,z), invisibleMeshContours[0])
   concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
+
   convexOnlyTriangles += inferTerrain.addHiddenCeiling(invisibleMeshContours[1])
   reflectedContour = map(lambda (x,y,z) : (x,-y,z), invisibleMeshContours[1])
   concaveOnlyTriangles += inferTerrain.addHiddenCeiling(reflectedContour)
 
-  nameOfVisibleMesh = "Testing_visible_mod_2"
-  visibleMesh = open(nameOfVisibleMesh+".cs", 'w')
-  visibleMesh.write(createUnityObject.generateVisibleMesh(nameOfVisibleMesh, visibleTriangles))
+  name = "Archway"
+  visibleMesh = open(name+"_visible.cs", 'w')
+  visibleMesh.write(createUnityObject.generateVisibleMesh(name+"_visible", visibleTriangles))
   
-  nameOfConvexMesh = "Testing_convex_mod_2"
-  convexMesh = open(nameOfConvexMesh+".cs", 'w')
-  convexMesh.write(createUnityObject.generateConvexMesh(nameOfConvexMesh, convexOnlyTriangles))
+  convexMesh = open(name+"_convex.cs", 'w')
+  convexMesh.write(createUnityObject.generateConvexMesh(name+"_convex", convexOnlyTriangles))
   
-  nameOfConcaveMesh = "Testing_concave_mod_2"
-  concaveMesh = open(nameOfConcaveMesh+".cs", 'w')
-  concaveMesh.write(createUnityObject.generateConcaveMesh(nameOfConcaveMesh, concaveOnlyTriangles))
+  concaveMesh = open(name+"_concave.cs", 'w')
+  concaveMesh.write(createUnityObject.generateConcaveMesh(name+"_concave", concaveOnlyTriangles))
 
 if __name__ == "__main__":
   triangulateIsometricGraph(archwayVerts2D, archwayAttachedEdges, archwayCoplanarPaths)
