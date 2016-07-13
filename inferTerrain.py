@@ -62,9 +62,8 @@ def connectToCeiling(left_side, right_side):
   triangle2 = (flat_L,        flat_R, tooth_first_R)
   return filter(lambda t : not hasZeroArea(t), [triangle1, triangle2])
 
-def addHiddenFloor(contour): # contour :: [(x,y,z)]
+def addHidden(contour, y, connector): # contour :: [(x,y,z)]
   aliasedInXZPlane = groupXZAliased(contour)
-  y = floorHeight(contour)
   flatContour  = map(lambda vs : (vs[0][0], y, vs[0][2]), aliasedInXZPlane)
   toothContour = map(lambda vs :         (vs[0], vs[-1]), aliasedInXZPlane)
 
@@ -72,9 +71,17 @@ def addHiddenFloor(contour): # contour :: [(x,y,z)]
   wallTriangles = []
   cyclicPairs = [ (i,(i+1)%len(wallCorners)) for i in range(len(wallCorners)) ]
   for (i,j) in cyclicPairs:
-    wallTriangles += connectToFloor(wallCorners[i], wallCorners[j])
+    wallTriangles += connector(wallCorners[i], wallCorners[j])
 
-  flatContour.reverse()
+  #flatContour.reverse()
+  print flatContour
   floorTriangles = projectionTriangulator.triangulate(flatContour)
 
   return floorTriangles + wallTriangles
+
+def addHiddenFloor(contour):
+  return addHidden(contour, floorHeight(contour), connectToFloor)
+
+def addHiddenCeiling(contour):
+  return addHidden(contour, ceilingHeight(contour), connectToCeiling)
+
