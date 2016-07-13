@@ -1,8 +1,22 @@
-import triangulator
+import numpy as np
+import polygon_triangulate as pt
 
 sampleX = [(0, 0, 0), (0, 0, -3), (0, 1, -2), (0, 2, -2), (0, 2, -1), (0, 1, -1), (0, 1, 0)]
 sampleY = [(-2, 2, -1), (0, 2, -1), (0, 2, -2), (-2, 2, -2)]
 sampleZ = [(0, 1, -1), (0, 2, -1), (-2, 2, -1), (-2, 1, -1)]
+
+def triangulate2D(verts2D):
+  xs = []
+  ys = []
+  for x,y in verts2D:
+    xs.append(x)
+    ys.append(y)
+  indices = pt.polygon_triangulate(len(verts2D), np.array(xs), np.array(ys))
+  polygon = []
+  for triangle in np.transpose(indices):
+    v1,v2,v3 = triangle
+    polygon.append((verts2D[v1], verts2D[v2], verts2D[v3]))
+  return polygon
 
 removeX = lambda (x,y,z) : (y,z)
 removeY = lambda (x,y,z) : (x,z)
@@ -31,14 +45,19 @@ def triangulate(verts3D):
   
   if inXplane:
     verts2D = map(removeX, verts3D)
-    verts2D.reverse()
-    triangles = map(distributeX, triangulator.triangulate(verts2D))
+    triangles = map(distributeX, triangulate2D(verts2D))
   elif inYplane:
     verts2D = map(removeY, verts3D)
-    triangles = map(lambda (v1,v2,v3) : (v1,v3,v2), map(distributeY, triangulator.triangulate(verts2D)))
+    verts2D.reverse()
+    triangles = map(lambda (v1,v2,v3) : (v1,v3,v2), map(distributeY, triangulate2D(verts2D)))
   elif inZplane:
     verts2D = map(removeZ, verts3D)
-    verts2D.reverse()
-    triangles = map(distributeZ, triangulator.triangulate(verts2D))
+    triangles = map(distributeZ, triangulate2D(verts2D))
   
   return triangles
+
+if (__name__ == "__main__"):
+  print "Triangulating sample plots in orthogonal axis planes"
+  print triangulate(sampleX)
+  print triangulate(sampleY)
+  print triangulate(sampleZ)
