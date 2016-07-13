@@ -1,3 +1,5 @@
+from collections import deque
+
 import segment
 import inferTerrain
 import triangulator
@@ -227,23 +229,6 @@ def orthogonalVector3(delta):
   unit = attachedEdgeToVector3[axisAngle]
   return scale(unit, scaleFactor)
 
-def foregroundTraversal(verts2D, attachedEdges):
-# The 2D coordinate (0,0) will be anchored to 3D coordinate 'offset'
-  adjacentVertexGraph = createAdjacencyGraph(verts2D, attachedEdges)
-  verts3D = ['undef' for v in verts2D]
-  offset = (0,0,0)
-  verts3D[0] = offset
-  seen = []
-  def DFS(v1):
-    seen.append(v1)
-    for v2 in adjacentVertexGraph[v1]:
-      if (v2 not in seen):
-        isometricDisplacement = subtract2(verts2D[v2], verts2D[v1])
-        verts3D[v2] = add3(verts3D[v1], orthogonalVector3(isometricDisplacement))
-        DFS(v2)
-  DFS(0)
-  return verts3D
-
 def getAliasedVertices(coplanarDisplacements, startingVert3D):
   dealiasedVerts = []
   v = startingVert3D
@@ -267,8 +252,7 @@ def createDuplicateDictionary(verts3D):
         duplicates[v] = [oldIndex]
   return duplicates
 
-def createOldToNewIndexMapping(duplicates, oldVertexCount):
-  uniqueVerts3D = duplicates.keys()
+def createOldToNewIndexMapping(uniqueVerts3D, duplicates, oldVertexCount):
   toNewIndex = ['undef' for i in range(oldVertexCount)]
   for newIndex in range(len(uniqueVerts3D)):
     v = uniqueVerts3D[newIndex]
@@ -302,33 +286,91 @@ def identifyCCWpolygon(polygons):
       if (duplicateSeen == True):
         return i
 
+def anchorRelativePath(offset, deltas):
+  anchoredPath = []
+  lastVertex = offset
+  for delta in deltas:
+    anchoredPath.append(lastVertex)
+    lastVertex = add3(lastVertex, delta)
+  return anchoredPath
+
 def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
-  foregroundVerts3D = foregroundTraversal(verts2D, attachedEdges)
+  verts3D = ['undef' for v in verts2D]
+  offset = (0,0,0)
+  verts3D[0] = offset
 
-  unattachedEdges = []
+  adjacentVertexGraph = createAdjacencyGraph(verts2D, attachedEdges)
+
+  seen = []
+  def foregroundTraversal(startingVertex):
+    def DFS(v1):
+      seen.append(v1)
+      for v2 in adjacentVertexGraph[v1]:
+        if (v2 not in seen):
+          displacement = orthogonalVector3(subtract2(verts2D[v2], verts2D[v1]))
+          verts3D[v2] = add3(verts3D[v1], displacement) 
+          DFS(v2)
+    DFS(startingVertex)
+
+  def backgroundTraversal(path):
+    unaliasedVertices = []
+    pathOffsetOf = {}
+    deltas = deque([])
+    lastEdge, _ = path[-1]
+    offsetIntoPath = 0
+    for (v1,v2), colour in path:
+      deltas.append(coplanarVector3(subtract2(verts2D[v2],verts2D[v1]), colour))
+      if lastEdge == (v2,v1):
+        unaliasedVertices.append(v1)
+        pathOffsetOf[v1] = offsetIntoPath
+      lastEdge = (v1,v2)
+      offsetIntoPath += 1
+    return (unaliasedVertices, pathOffsetOf, deltas)
+
+  def addCyclicEdges(vertsToAdd, firstVertex):
+    #firstVertex = len(verts3D)
+    lastVertex = firstVertex + len(vertsToAdd)
+    pathVertices = range(firstVertex, lastVertex)
+    edgesToAdd = [(i,i+1) for i in pathVertices[:-1]]
+    edgesToAdd.append((lastVertex-1, firstVertex))
+    return edgesToAdd
+
+  contourQueue = deque([backgroundTraversal(path) for path in coplanarPaths])
   invisibleMeshContours = []
-  verts3D = foregroundVerts3D
+  unattachedEdges = []
+  foregroundTraversal(0)
+  while(len(contourQueue) > 0):
+    contour = contourQueue.popleft()
+    unaliasedVertices, pathOffsetOf, deltas = contour
+    potentialAnchors = [ v for v in unaliasedVertices if v in seen ]
+    if (potentialAnchors != []):
+      anchor = potentialAnchors.pop()
+      unaliasedVertices.remove(anchor)
+      deltas.rotate(pathOffsetOf[anchor])
+      vertsToAdd = anchorRelativePath(verts3D[anchor], deltas)
+      invisibleMeshContours.append(vertsToAdd)
+      for v in unaliasedVertices:
+        verts3D[v] = vertsToAdd[pathOffsetOf[v]-pathOffsetOf[anchor]]
+        foregroundTraversal(v)
+    else:
+      contourQueue.append(contour)
 
-  for path in coplanarPaths:
-    startingVert3D = verts3D[path[0][0][0]]
-    coplanarDisplacements = [ coplanarVector3(subtract2(verts2D[v2], verts2D[v1]), colour) for ((v1,v2), colour) in path ]
-    vertsToAdd = getAliasedVertices(coplanarDisplacements, startingVert3D)
-    firstNewVertex = len(verts3D)
-    lastNewVertex = firstNewVertex + len(vertsToAdd)
-    pathVertices = range(firstNewVertex, lastNewVertex)
-    edgesToAdd = [ (i,i+1) for i in pathVertices[:-1] ] + [(lastNewVertex-1, firstNewVertex)]
-    verts3D += vertsToAdd
-    unattachedEdges += edgesToAdd
-    invisibleMeshContours.append(pathVertices)
+  for c in invisibleMeshContours:
+    newEdges = addCyclicEdges(c, len(verts3D))
+    verts3D.extend(c)
+    unattachedEdges.extend(newEdges)
 
   duplicates = createDuplicateDictionary(verts3D)
   uniqueVerts3D = duplicates.keys()
-  toNewIndex = createOldToNewIndexMapping(duplicates, len(verts3D))
+
+  toNewIndex = createOldToNewIndexMapping(uniqueVerts3D, duplicates, len(verts3D))
   renumberedAttachedEdges = renumberEdges(toNewIndex, attachedEdges)
   renumberedUnattachedEdges = renumberEdges(toNewIndex, unattachedEdges)
-  renumberedInvisibleMeshContours = [ map(lambda v : uniqueVerts3D[toNewIndex[v]], contour) for contour in invisibleMeshContours ]
 
   directedEdges = renumberedAttachedEdges + reverseEdges(renumberedAttachedEdges) + renumberedUnattachedEdges
+
+  print "uniqueVerts3D",uniqueVerts3D
+  print "directedEdges",directedEdges
   simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
   del simplePolygons[identifyCCWpolygon(simplePolygons)]
   
@@ -339,20 +381,20 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
   
   convexOnlyTriangles = []
   concaveOnlyTriangles = []
-  for convexContour in renumberedInvisibleMeshContours:
+  for convexContour in invisibleMeshContours:
     convexOnlyTriangles += inferTerrain.addHiddenFloor(convexContour)
     reflectedContour = map(lambda (x,y,z) : (x,-y,z), convexContour)
     concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
 
-  nameOfVisibleMesh = "Testing_visible-mod"
+  nameOfVisibleMesh = "Testing_visible_mod_2"
   visibleMesh = open(nameOfVisibleMesh+".cs", 'w')
   visibleMesh.write(createUnityObject.generateVisibleMesh(nameOfVisibleMesh, visibleTriangles))
   
-  nameOfConvexMesh = "Testing_convex-mod"
+  nameOfConvexMesh = "Testing_convex_mod_2"
   convexMesh = open(nameOfConvexMesh+".cs", 'w')
   convexMesh.write(createUnityObject.generateConvexMesh(nameOfConvexMesh, convexOnlyTriangles))
   
-  nameOfConcaveMesh = "Testing_concave-mod"
+  nameOfConcaveMesh = "Testing_concave_mod_2"
   concaveMesh = open(nameOfConcaveMesh+".cs", 'w')
   concaveMesh.write(createUnityObject.generateConcaveMesh(nameOfConcaveMesh, concaveOnlyTriangles))
 
