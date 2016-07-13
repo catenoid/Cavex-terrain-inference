@@ -45,14 +45,14 @@ def triangulate(verts3D):
   
   if inXplane:
     verts2D = map(removeX, verts3D)
-    triangles = map(distributeX, triangulate2D(verts2D))
+    triangles = map(lambda (v1,v2,v3) : (v1,v3,v2), map(distributeX, triangulate2D(verts2D)))
   elif inYplane:
     verts2D = map(removeY, verts3D)
     verts2D.reverse()
-    triangles = map(lambda (v1,v2,v3) : (v1,v3,v2), map(distributeY, triangulate2D(verts2D)))
+    triangles = map(distributeY, triangulate2D(verts2D))
   elif inZplane:
     verts2D = map(removeZ, verts3D)
-    triangles = map(distributeZ, triangulate2D(verts2D))
+    triangles = map(lambda (v1,v2,v3) : (v1,v3,v2), map(distributeZ, triangulate2D(verts2D)))
   
   return triangles
 
