@@ -1,5 +1,4 @@
 from collections import deque
-
 import segment
 import inferTerrain
 import projectionTriangulator
@@ -7,117 +6,28 @@ import createUnityObject
 
 # Representing a drawing on isometric paper:
 # Orient the paper with one set of graticules vertically upright
-# (Terminology: azimuth = degrees clockwise from "north," in this case, towards the top of the page)
+# Terminology: azimuth = degrees clockwise from "north,"
+#   in this case, towards the top of the page
 
 # Representing 2D coordinates:
 # +Primary axis: azimuth = 60
 # +Secondary axis: azimuth = 0
-stairVerts2D = [
-  (0,0),
-  (3,0),
-  (2,1),
-  (0,1),
-  (-1,2),
-  (1,2),
-  (1,3),
-  (-1,3),
-  (-2,4),
-  (0,4),
-  (-2,3),
-  (-3,3),
-  (0,-1),  # Bounding vertices of the ground plane
-  (-6,5),
-  (0,5),
-  (6,-1),
-]
 
-# Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
-stairAttachedEdges = [
-  (0,1),
-  (2,3),
-  (0,3),
-  (3,4),
-  (4,5),
-  (6,7),
-  (4,7),
-  (7,8),
-  (0,11),
-]
+# Representing Attached Edges:
+# Connect points on isometric paper with a vertex pair
+# (as indexed into verts2D list)
 
-stairCoplanarPaths = [
-# A contour aliased to an acyclic graph goes counter-clockwise from above
-# So the colour paired with a directed edge is the colour on the outside of the contour
-# First vertex must be found in foreground traversal, until I check for 'undef's
-[ # Back of steps
-  ((11,10), 'g'),
-  ((10,8), 'g'),
-  ((8,9), 'w'),
-  ((9,6), 'w'),
-  ((6,5), 'b'),
-  ((5,2), 'w'),
-  ((2,1), 'b'),
-  ((1,2), 'w'),
-  ((2,5), 'w'),
-  ((5,6), 'w'),
-  ((6,9), 'w'),
-  ((9,8), 'w'),
-  ((8,10), 'w'),
-  ((10,11), 'w'),
-],
-]
-
-archwayVerts2D = [
-  (0,0),
-  (1,0),
-  (1,1),
-  (2,1),
-  (2,0),
-  (3,0),
-  (3,2),
-  (2,3),
-  (-1,3),
-  (-1,1),
-  (0,2),
-]
-
-# Representing connections between points on isometric paper with a vertex pair (as indexed into verts2D)
-archwayAttachedEdges = [
-  (0,10),
-  (0,1),
-  (0,9),
-  (8,10),
-  (6,10),
-  (2,4),
-  (3,4),
-  (4,5),
-]
-
-# Now there are multiple graphs of attached edges, so a DFS starting at vertex 0 does not traverse all vertices
-
-archwayCoplanarPaths = [ 
+# Representing Unattached Edges:
 # Hidden floor: CCW from above
 # Hidden ceiling: CW from above
 # Paired colour represents the plane of movement to traverse that edge
+
 # Once converted to 3D vector displacements, the absolute offset vertex must:
 #   - be met in foreground traversal (i.e., not 'undef' in verts3D)
 #   - not alias multiple 3d vertices (i.e., a tip on the rose tree)
-[ # top of arch
-  ((9,8), 'g'),
-  ((8,7), 'w'),
-  ((7,6), 'w'),
-  ((6,5), 'b'),
-  ((5,6), 'w'),
-  ((6,7), 'w'),
-  ((7,8), 'w'),
-  ((8,9), 'w'),
-],
-[ # doorway through arch
-  ((3,2), 'b'),
-  ((2,1), 'b'),
-  ((1,2), 'w'),
-  ((2,3), 'g'),
-],
-]
+
+# Import the isometric graph:
+from archway import verts2D, attachedEdges, coplanarPaths
 
 def createAdjacencyGraph(verts2D, attachedEdges):
   adjacentVertices = [[] for v in verts2D]
@@ -239,8 +149,11 @@ def getAliasedVertices(coplanarDisplacements, startingVert3D):
 
 def createDuplicateDictionary(verts3D):
 # Alias vertices that refer to the same 3D coordinate
-#   (1) When a coplanar path meets an attached edge, and the intersecting 3D coordinate is calculated twice
-#   (2) At the starting vertex of a coplanar path, when the contour wraps upon itself
+# This occurs:
+#   (1) When a coplanar path meets an attached edge,
+#       and the intersecting 3D coordinate is calculated twice
+#   (2) At the starting vertex of a coplanar path,
+#       when the contour wraps upon itself
   duplicates = {} # { (x,y,z) : [ vertices that refer to that coordinate] }
   for oldIndex in range(len(verts3D)):
     v = verts3D[oldIndex]
@@ -266,8 +179,9 @@ def renumberEdges(toNewIndex, edges):
 def reverseEdges(edges):
   return map(lambda (v1,v2) : (v2,v1), edges)
 
-# Make edges directional, such that visible polygons orient clockwise
+# Visible polygons orient clockwise
 # The one "polygon" which orients CCW is the hole in the ground plane
+#   formed by the unused attached edges which meet the ground plane
 def identifyCCWpolygon(polygons):
   for i in range(len(polygons)):
     edges = reverseEdges(polygons[i])
@@ -372,9 +286,12 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
   print "directedEdges",directedEdges
 
   simplePolygons = segment.separateIntoPolygons(uniqueVerts3D, directedEdges)
-  #del simplePolygons[identifyCCWpolygon(simplePolygons)]
+
+### ISSUE:
 ### The ccw identifier failed: select manually as index 1
+  #del simplePolygons[identifyCCWpolygon(simplePolygons)]
   del simplePolygons[1]
+
   visibleTriangles = []
   for polygon in simplePolygons:
     polygonVerts3D = [ uniqueVerts3D[v1] for (v1,v2) in polygon ]
@@ -382,12 +299,14 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
   
   convexOnlyTriangles = []
   concaveOnlyTriangles = []
+
+### ISSUE:
+### Need to manually identify floor vs. ceiling 
 #  for convexContour in invisibleMeshContours:
 #    print "invisibleMeshContours",convexContour
 #    convexOnlyTriangles += inferTerrain.addHiddenFloor(convexContour)
 #    reflectedContour = map(lambda (x,y,z) : (x,-y,z), convexContour)
 #    concaveOnlyTriangles += inferTerrain.addHiddenFloor(reflectedContour)
-### Need to manually identify floor vs. ceiling 
   invisibleMeshContours[0].reverse()
   convexOnlyTriangles += inferTerrain.addHiddenFloor(invisibleMeshContours[0])
   reflectedContour = map(lambda (x,y,z) : (x,-y,z), invisibleMeshContours[0])
@@ -408,4 +327,4 @@ def triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths):
   concaveMesh.write(createUnityObject.generateConcaveMesh(name+"_concave", concaveOnlyTriangles))
 
 if __name__ == "__main__":
-  triangulateIsometricGraph(archwayVerts2D, archwayAttachedEdges, archwayCoplanarPaths)
+  triangulateIsometricGraph(verts2D, attachedEdges, coplanarPaths)
